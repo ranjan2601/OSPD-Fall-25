@@ -19,8 +19,13 @@ Usage:
 from collections.abc import Iterator
 from typing import Protocol, runtime_checkable
 
-from message import Message
+import sys
+from pathlib import Path
 
+message_path = Path(__file__).parent.parent.parent.parent / "message/src"
+sys.path.append(str(message_path))
+
+from message import Message
 
 @runtime_checkable
 class Client(Protocol):
@@ -79,23 +84,76 @@ class Client(Protocol):
         raise NotImplementedError
 
 
+class MockMessage:
+    """Mock message implementation for testing."""
+    
+    def __init__(self, id: str, subject: str, body: str, from_: str, to: str = "test@recipient.com", date: str = "2023-01-01"):
+        self._id = id
+        self._subject = subject
+        self._body = body
+        self._from = from_
+        self._to = to
+        self._date = date
+    
+    @property
+    def id(self) -> str:
+        return self._id
+    
+    @property
+    def from_(self) -> str:
+        return self._from
+    
+    @property
+    def to(self) -> str:
+        return self._to
+    
+    @property
+    def date(self) -> str:
+        return self._date
+    
+    @property
+    def subject(self) -> str:
+        return self._subject
+    
+    @property
+    def body(self) -> str:
+        return self._body
+
+
+class MockClient(Client):
+    """Mock client implementation for testing."""
+    
+    def get_message(self, message_id: str) -> Message:
+        return MockMessage(
+            id="test_id",
+            subject="API Working",
+            body="The API is working correctly",
+            from_="test@example.com"
+        )
+
+    def delete_message(self, message_id: str) -> bool:
+        return True
+    
+    def mark_as_read(self, message_id: str) -> bool:
+        return True
+
+    def get_messages(self, max_results: int = 10) -> Iterator[Message]:
+        messages = [
+            MockMessage(
+                id="test_id_1",
+                subject="API Working",
+                body="The API is working correctly",
+                from_="test@example.com"
+            ),
+            MockMessage(
+                id="test_id_2", 
+                subject="Another Test Message",
+                body="This is another test message",
+                from_="test2@example.com"
+            )
+        ]
+        return iter(messages)
+
 def get_client(interactive: bool = False) -> Client:
-    """Return an instance of a Mail Client.
-
-    This is a factory function that returns a concrete implementation
-    of the Client protocol. The actual implementation is injected
-    by implementation packages.
-
-    Args:
-        interactive (bool): If True, the client may prompt for user input
-        during initialization (e.g., for OAuth2 flow). If False, it will
-        use environment variables or other non-interactive methods.
-
-    Returns:
-        Client: A concrete mail client instance.
-
-    Raises:
-        NotImplementedError: If no implementation has been registered.
-
-    """
-    raise NotImplementedError
+    """Return a mock client for testing."""
+    return MockClient()
