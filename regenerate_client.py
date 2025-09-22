@@ -14,9 +14,9 @@ from pathlib import Path
 def regenerate_client() -> None:
     """Regenerate the auto-generated client from schema."""
     
-    service_client_dir = Path("src/mail_client_service_client")
+    service_client_dir = Path("src/mail_client_service")
     schema_file = service_client_dir / "openapi_schema.json"
-    generated_dir = service_client_dir / "src" / "mail_client_service_client" / "generated"
+    generated_dir = service_client_dir / "src" / "mail_client_service" / "generated"
     
     if not schema_file.exists():
         print(f"Error: Schema file not found at {schema_file}")

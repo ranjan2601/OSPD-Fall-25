@@ -1,4 +1,4 @@
-"""Mail Client Service Client Package.
+"""Mail Client Service Package.
 
 This package provides an auto-generated HTTP client that implements the
 mail_client_api.Client protocol for communicating with a FastAPI mail service.

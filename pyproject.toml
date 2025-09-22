@@ -26,7 +26,7 @@ members = [
   "src/gmail_client_impl",
   "src/message",
   "src/gmail_message_impl",
-  "src/mail_client_service_client",
+  "src/mail_client_service",
 ]
 
 [tool.ruff]

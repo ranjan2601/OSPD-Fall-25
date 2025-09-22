@@ -1,8 +1,8 @@
-# Mail Client Service Client
+# Mail Client Service
 
 ## Overview
 
-The `mail_client_service_client` package provides an auto-generated HTTP client that implements the `mail_client_api.Client` protocol. This client communicates with a FastAPI mail service over HTTP while maintaining the same interface as the direct Gmail implementation.
+The `mail_client_service` package provides an auto-generated HTTP client that implements the `mail_client_api.Client` protocol. This client communicates with a FastAPI mail service over HTTP while maintaining the same interface as the direct Gmail implementation.
 
 ## Purpose
 
@@ -42,7 +42,7 @@ To regenerate the client from the schema (without needing a running service):
 python regenerate_client.py
 
 # Or manually
-cd src/mail_client_service_client
+cd src/mail_client_service
 openapi-python-client generate --path openapi_schema.json --output-path generated
 ```
 
@@ -53,7 +53,7 @@ The OpenAPI schema is stored in `openapi_schema.json` and defines the mail servi
 ### Basic Usage
 
 ```python
-import mail_client_service_client
+import mail_client_service
 from mail_client_api import get_client
 
 # Uses service client with default configuration
@@ -64,7 +64,7 @@ messages = client.get_messages(max_results=10)
 ### Custom Service URL
 
 ```python
-import mail_client_service_client
+import mail_client_service
 from mail_client_api import get_client
 
 # Configure service URL
@@ -130,7 +130,7 @@ from mail_client_api import get_client
 client = get_client()  # Returns GmailClient
 
 # Use service client
-import mail_client_service_client
+import mail_client_service
 from mail_client_api import get_client  
 client = get_client()  # Returns ServiceClient
 ```

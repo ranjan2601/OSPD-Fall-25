@@ -5,7 +5,7 @@ This script shows how the ServiceClient provides the same interface as the
 Gmail client but communicates with a FastAPI service over HTTP.
 """
 
-import mail_client_service_client
+import mail_client_service
 from mail_client_api import get_client
 
 
