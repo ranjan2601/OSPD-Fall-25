@@ -18,6 +18,3 @@ def get_client_impl(interactive: bool = False, base_url: str = "http://localhost
 
     """
     return ServiceClient(base_url=base_url)
-
-
-mail_client_api.get_client = get_client_impl

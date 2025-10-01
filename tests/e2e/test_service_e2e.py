@@ -45,7 +45,6 @@ def test_service_root_endpoint(check_service_running) -> None:
     assert "Mail Client Service" in data["message"]
 
 
-
 @pytest.mark.local_credentials
 def test_service_get_messages_e2e(check_service_running, check_credentials) -> None:
     """Test fetching messages through the service from real Gmail API.
@@ -112,7 +111,6 @@ def test_service_get_specific_message_e2e(check_service_running, check_credentia
     assert "body" in message
 
 
-
 @pytest.mark.local_credentials
 def test_service_mark_as_read_e2e(check_service_running, check_credentials) -> None:
     """Test marking a message as read through the service with real Gmail API.
@@ -144,7 +142,6 @@ def test_service_mark_as_read_e2e(check_service_running, check_credentials) -> N
     data = response.json()
     assert "status" in data
     assert data["status"] == "Marked as read"
-
 
 
 @pytest.mark.local_credentials
@@ -183,7 +180,6 @@ def test_service_delete_message_e2e(check_service_running, check_credentials) ->
     assert data["status"] == "Deleted"
 
 
-
 @pytest.mark.local_credentials
 def test_service_handles_invalid_message_id_e2e(check_service_running, check_credentials) -> None:
     """Test that the service correctly handles invalid message IDs.
@@ -197,4 +193,3 @@ def test_service_handles_invalid_message_id_e2e(check_service_running, check_cre
 
     # Should return 404 or 500
     assert response.status_code in [404, 500]
-
