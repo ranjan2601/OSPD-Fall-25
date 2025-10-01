@@ -10,7 +10,7 @@ gmail_client_impl_path = Path(__file__).parent.parent / "gmail_client_impl/src"
 sys.path.append(str(mail_client_api_path))
 sys.path.append(str(gmail_client_impl_path))
 
-
+import gmail_client_impl
 # Now import the factory function
 from mail_client_api import get_client
 
