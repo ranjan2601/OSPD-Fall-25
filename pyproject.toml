@@ -46,7 +46,10 @@ ignore = [
   "D213", # `multi-line-summary-first-line` (D212) and `multi-line-summary-second-line` (D213) are incompatible. Ignoring `multi-line-summary-second-line`.
   "S101", # Use of `assert` detected --> Asserts are good in our opinion. Tests use asserts profusely.
 ]
-per-file-ignores = { "**/test_*.py" = ["TRY300", "BLE001", "ANN401", "SLF001", "E501", "S105", "ARG001", "ARG002", "S106", "INP001", "PLC0415"] }
+[tool.ruff.lint.per-file-ignores]
+"**/test_*.py" = ["TRY300", "BLE001", "ANN401", "SLF001", "E501", "S105", "ARG001", "ARG002", "S106", "INP001", "PLC0415", "PLR2004"]
+"src/mail_client_service/**/*.py" = ["D100", "D101", "D102", "D103", "D104", "D107", "ANN001", "ANN201", "E402", "A002", "ARG001", "ARG002", "BLE001", "B904", "TRY300", "TRY301", "PLC0415", "FBT001", "FBT002", "S110"]
+"tests/e2e/**/*.py" = ["D100", "ANN001", "ANN201", "PLR2004", "T201"]
 
 [tool.mypy]
 strict = true

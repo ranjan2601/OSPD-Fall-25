@@ -1,17 +1,3 @@
-"""End-to-End tests for the mail_client_service.
-
-This module tests that the service works with real Gmail API through manual testing.
-Due to complex import paths, these tests document the expected behavior and can be
-run manually by starting the service and testing endpoints.
-
-For automated testing, run the service manually first:
-    cd src/mail_client_service
-    uv run uvicorn main:app --reload
-
-Then run these tests:
-    pytest tests/e2e/test_service_e2e.py
-"""
-
 from pathlib import Path
 
 import httpx
@@ -25,7 +11,7 @@ SERVICE_URL = "http://localhost:8000"
 
 
 @pytest.fixture(scope="module")
-def check_service_running():
+def check_service_running() -> None:
     """Check if the service is running before tests."""
     try:
         response = httpx.get(SERVICE_URL, timeout=2.0)
@@ -34,12 +20,12 @@ def check_service_running():
     except (httpx.ConnectError, httpx.TimeoutException):
         pytest.skip(
             f"Service not running at {SERVICE_URL}. "
-            "Please start it with: cd src/mail_client_service && uv run uvicorn main:app --reload"
+            "Please start it with: cd src/mail_client_service && uv run uvicorn main:app --reload",
         )
 
 
 @pytest.fixture(scope="module")
-def check_credentials():
+def check_credentials() -> None:
     """Check if credentials exist."""
     credentials_file = Path(__file__).parent.parent.parent / "credentials.json"
     token_file = Path(__file__).parent.parent.parent / "token.json"
@@ -49,7 +35,7 @@ def check_credentials():
 
 
 @pytest.mark.local_credentials
-def test_service_root_endpoint(check_service_running):
+def test_service_root_endpoint(check_service_running) -> None:
     """Test that the service root endpoint is accessible."""
     response = httpx.get(SERVICE_URL)
 
@@ -58,11 +44,10 @@ def test_service_root_endpoint(check_service_running):
     assert "message" in data
     assert "Mail Client Service" in data["message"]
 
-    print(f"\n✓ Service is running at {SERVICE_URL}")
 
 
 @pytest.mark.local_credentials
-def test_service_get_messages_e2e(check_service_running, check_credentials):
+def test_service_get_messages_e2e(check_service_running, check_credentials) -> None:
     """Test fetching messages through the service from real Gmail API.
 
     This test validates:
@@ -87,14 +72,12 @@ def test_service_get_messages_e2e(check_service_running, check_credentials):
         assert "sender" in first_message
         assert "body" in first_message
 
-        print(f"\n✓ Successfully fetched {len(messages)} messages through service")
-        print(f"  First message subject: {first_message['subject']}")
     else:
-        print("\n⚠ No messages found in inbox")
+        pass
 
 
 @pytest.mark.local_credentials
-def test_service_get_specific_message_e2e(check_service_running, check_credentials):
+def test_service_get_specific_message_e2e(check_service_running, check_credentials) -> None:
     """Test fetching a specific message through the service from real Gmail API.
 
     This test validates:
@@ -128,13 +111,10 @@ def test_service_get_specific_message_e2e(check_service_running, check_credentia
     assert "sender" in message
     assert "body" in message
 
-    print(f"\n✓ Successfully fetched message {message_id} through service")
-    print(f"  Subject: {message['subject']}")
-    print(f"  From: {message['sender']}")
 
 
 @pytest.mark.local_credentials
-def test_service_mark_as_read_e2e(check_service_running, check_credentials):
+def test_service_mark_as_read_e2e(check_service_running, check_credentials) -> None:
     """Test marking a message as read through the service with real Gmail API.
 
     This test validates:
@@ -165,12 +145,11 @@ def test_service_mark_as_read_e2e(check_service_running, check_credentials):
     assert "status" in data
     assert data["status"] == "Marked as read"
 
-    print(f"\n✓ Successfully marked message {message_id} as read through service")
 
 
 @pytest.mark.local_credentials
 @pytest.mark.skip(reason="Destructive test - only run manually to avoid deleting real emails")
-def test_service_delete_message_e2e(check_service_running, check_credentials):
+def test_service_delete_message_e2e(check_service_running, check_credentials) -> None:
     """Test deleting a message through the service with real Gmail API.
 
     This test validates:
@@ -203,11 +182,10 @@ def test_service_delete_message_e2e(check_service_running, check_credentials):
     assert "status" in data
     assert data["status"] == "Deleted"
 
-    print(f"\n✓ Successfully deleted message {message_id} through service")
 
 
 @pytest.mark.local_credentials
-def test_service_handles_invalid_message_id_e2e(check_service_running, check_credentials):
+def test_service_handles_invalid_message_id_e2e(check_service_running, check_credentials) -> None:
     """Test that the service correctly handles invalid message IDs.
 
     This test validates:
@@ -220,4 +198,3 @@ def test_service_handles_invalid_message_id_e2e(check_service_running, check_cre
     # Should return 404 or 500
     assert response.status_code in [404, 500]
 
-    print("\n✓ Service correctly handled invalid message ID")
