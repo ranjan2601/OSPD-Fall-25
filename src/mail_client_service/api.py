@@ -10,6 +10,8 @@ gmail_client_impl_path = Path(__file__).parent.parent / "gmail_client_impl/src"
 sys.path.append(str(mail_client_api_path))
 sys.path.append(str(gmail_client_impl_path))
 
+# Import the Gmail implementation to register it
+import gmail_client_impl  # This triggers the registration
 
 # Now import the factory function
 from mail_client_api import get_client
@@ -62,6 +64,7 @@ except RuntimeError as e:
     else:
         raise
 
+
 @router.get("/messages")
 async def get_messages():
     try:
@@ -69,18 +72,23 @@ async def get_messages():
 
         messages = list(messages_iter)
 
-        return {"messages": [
-            {
-                "id": msg.id,
-                "subject": msg.subject,
-                "sender": msg.from_,
-                "body": msg.body,
-            } for msg in messages
-        ]}
+        return {
+            "messages": [
+                {
+                    "id": msg.id,
+                    "subject": msg.subject,
+                    "sender": msg.from_,
+                    "body": msg.body,
+                }
+                for msg in messages
+            ]
+        }
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error: {e!s}")
+
 
 @router.get("/messages/{message_id}")
 async def get_message(message_id: str):
@@ -99,6 +107,7 @@ async def get_message(message_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.delete("/messages/{message_id}")
 async def delete_message(message_id: str):
     try:
@@ -110,6 +119,7 @@ async def delete_message(message_id: str):
         raise HTTPException(status_code=404, detail="Message not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/messages/{message_id}/mark-as-read")
 async def mark_message_as_read(message_id: str):
