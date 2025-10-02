@@ -1,8 +1,6 @@
-import importlib
 import sys
 import types
-from typing import Never
-
+import importlib
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -10,9 +8,16 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def client(monkeypatch):
+    """
+    Build a TestClient for the FastAPI router, while injecting a fake
+    mail_client_api.get_client BEFORE api.py is imported (to avoid
+    NotImplementedError during import).
+    """
+    # Fake module to satisfy
     fake_mod = types.ModuleType("mail_client_api")
 
     def fake_get_client(*, interactive: bool = False):
+        # one fake message object with attrs used by api.py
         msg = types.SimpleNamespace(id="m1", subject="Hello", from_="a@x.com", body="Test")
         fake = types.SimpleNamespace()
         fake.get_messages = lambda max_results=10: [msg]
@@ -24,10 +29,9 @@ def client(monkeypatch):
     fake_mod.get_client = fake_get_client
     sys.modules["mail_client_api"] = fake_mod
 
+    #  import of api.py after patching
     sys.modules.pop("mail_client_service.api", None)
-    from mail_client_service import api
-
-    importlib.reload(api)
+    import mail_client_service.api as api
 
     app = FastAPI()
     app.include_router(api.router)
@@ -36,12 +40,16 @@ def client(monkeypatch):
 
 @pytest.fixture
 def api_module(client):
-    from mail_client_service import api
+    """
+    Provide the imported api module (after the fake client is installed),
+    so we can monkeypatch api.mail_client methods in branch tests.
+    """
+    import mail_client_service.api as api
 
-    importlib.reload(api)
     return api
 
 
+# GET /messages
 def test_get_messages_success(client: TestClient):
     r = client.get("/messages")
     assert r.status_code == 200
@@ -59,7 +67,7 @@ def test_get_messages_empty(client, api_module, monkeypatch):
 
 
 def test_get_messages_500(client, api_module, monkeypatch):
-    def boom(*_a, **_k) -> Never:
+    def boom(*_a, **_k):
         raise Exception("boom")
 
     monkeypatch.setattr(api_module.mail_client, "get_messages", boom)
@@ -72,8 +80,7 @@ def test_get_message_ok(client):
     r = client.get("/messages/m1")
     assert r.status_code == 200
     body = r.json()
-    assert "message" in body
-    assert body["message"]["id"] == "m1"
+    assert "message" in body and body["message"]["id"] == "m1"
 
 
 def test_get_message_not_found(client):
@@ -82,7 +89,7 @@ def test_get_message_not_found(client):
 
 
 def test_get_message_500(client, api_module, monkeypatch):
-    def boom(_id) -> Never:
+    def boom(_id):
         raise Exception("kaboom")
 
     monkeypatch.setattr(api_module.mail_client, "get_message", boom)
@@ -98,7 +105,7 @@ def test_delete_message_ok(client):
 
 
 def test_delete_message_not_found(client, api_module, monkeypatch):
-    def not_found(_id) -> Never:
+    def not_found(_id):
         raise KeyError("nf")
 
     monkeypatch.setattr(api_module.mail_client, "delete_message", not_found)
@@ -114,7 +121,7 @@ def test_delete_message_failed_returns_500(client, api_module, monkeypatch):
 
 
 def test_delete_message_500(client, api_module, monkeypatch):
-    def boom(_id) -> Never:
+    def boom(_id):
         raise Exception("boom")
 
     monkeypatch.setattr(api_module.mail_client, "delete_message", boom)
@@ -130,7 +137,7 @@ def test_mark_as_read_ok(client):
 
 
 def test_mark_as_read_not_found(client, api_module, monkeypatch):
-    def not_found(_id) -> Never:
+    def not_found(_id):
         raise KeyError("nf")
 
     monkeypatch.setattr(api_module.mail_client, "mark_as_read", not_found)
@@ -145,7 +152,7 @@ def test_mark_as_read_failed_returns_500(client, api_module, monkeypatch):
 
 
 def test_mark_as_read_500(client, api_module, monkeypatch):
-    def boom(_id) -> Never:
+    def boom(_id):
         raise Exception("boom")
 
     monkeypatch.setattr(api_module.mail_client, "mark_as_read", boom)
@@ -155,26 +162,22 @@ def test_mark_as_read_500(client, api_module, monkeypatch):
 
 # extra coverage on import-time branches and modules
 def test_api_import_fallback_to_mock_client(monkeypatch):
-    """Cover the import-time branch where get_client raises a RuntimeError
+    """
+    Cover the import-time branch where get_client raises a RuntimeError
     containing 'No valid credentials found' and api.py builds a MockClient.
     """
-    import importlib
-    import sys
-    import types
+    import sys, types, importlib
 
     fake_mod = types.ModuleType("mail_client_api")
 
-    def raising_get_client(*, interactive: bool = False) -> Never:
-        msg = "No valid credentials found for testing"
-        raise RuntimeError(msg)
+    def raising_get_client(*, interactive: bool = False):
+        raise RuntimeError("No valid credentials found for testing")
 
     fake_mod.get_client = raising_get_client
     sys.modules["mail_client_api"] = fake_mod
 
     sys.modules.pop("mail_client_service.api", None)
-    from mail_client_service import api
-
-    importlib.reload(api)
+    import mail_client_service.api as api
 
     # Confirm fallback client is present and usable
     msgs = list(api.mail_client.get_messages())
@@ -183,16 +186,15 @@ def test_api_import_fallback_to_mock_client(monkeypatch):
 
 
 def test_api_import_rethrows_other_runtimeerror(monkeypatch):
-    """Cover the 'else: raise' path in the import-time try/except."""
-    import importlib
-    import sys
-    import types
+    """
+    Cover the 'else: raise' path in the import-time try/except.
+    """
+    import sys, types, importlib
 
     fake_mod = types.ModuleType("mail_client_api")
 
-    def raising_get_client(*, interactive: bool = False) -> Never:
-        msg = "some other runtime error"
-        raise RuntimeError(msg)  # triggers 'else: raise'
+    def raising_get_client(*, interactive: bool = False):
+        raise RuntimeError("some other runtime error")  # triggers 'else: raise'
 
     fake_mod.get_client = raising_get_client
     sys.modules["mail_client_api"] = fake_mod
@@ -203,20 +205,15 @@ def test_api_import_rethrows_other_runtimeerror(monkeypatch):
 
 
 def test_import_main_for_coverage(client):
-    """Import mail_client_service.main so its top-level code is executed.
+    """
+    Import mail_client_service.main so its top-level code is executed.
     Depends on 'client' fixture so the fake mail_client_api is already installed.
     """
-    import importlib
-
-    from mail_client_service import main
-
-    importlib.reload(main)
+    import mail_client_service.main
 
 
 def test_import_test_module_for_coverage(client):
-    """Import mail_client_service.test so its top-level code is executed."""
-    import importlib
-
-    import mail_client_service.test as mod
-
-    importlib.reload(mod)
+    """
+    Import mail_client_service.test so its top-level code is executed.
+    """
+    import mail_client_service.test
