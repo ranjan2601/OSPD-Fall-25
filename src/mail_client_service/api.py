@@ -3,27 +3,21 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
-# Add the mail_client_api to Python path
 mail_client_api_path = Path(__file__).parent.parent / "mail_client_api/src"
 gmail_client_impl_path = Path(__file__).parent.parent / "gmail_client_impl/src"
 
 sys.path.append(str(mail_client_api_path))
 sys.path.append(str(gmail_client_impl_path))
 
-# Import the Gmail implementation to register it
-import gmail_client_impl  # This triggers the registration
-
-# Now import the factory function
+import gmail_client_impl  # noqa: F401
 from mail_client_api import get_client
 
 router = APIRouter()
 
-# Initialize the mail client
 try:
     mail_client = get_client(interactive=False)
 except RuntimeError as e:
     if "No valid credentials found" in str(e):
-        # Use mock client for testing when no credentials are available
 
         class MockMessage:
             def __init__(self, id, subject, from_, body) -> None:
@@ -58,7 +52,7 @@ except RuntimeError as e:
                 return False
 
             def mark_as_read(self, message_id) -> bool:
-                return True  # Mock success
+                return True
 
         mail_client = MockClient()
     else:
@@ -81,7 +75,7 @@ async def get_messages():
                     "body": msg.body,
                 }
                 for msg in messages
-            ]
+            ],
         }
     except Exception as e:
         import traceback

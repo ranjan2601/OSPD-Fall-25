@@ -1,17 +1,10 @@
-"""Integration tests for gmail_client_impl authentication and API connectivity.
-
-This module tests that the dependency injection works correctly and that
-the client can authenticate and make real API calls to Gmail.
-"""
-
 import logging
 
 import pytest
 
-import gmail_client_impl  # Import to trigger dependency injection
+import gmail_client_impl
 import mail_client_api
 
-# Mark all tests in this file as integration tests
 pytestmark = pytest.mark.integration
 
 logger = logging.getLogger(__name__)
@@ -25,10 +18,7 @@ def test_get_client_and_authenticate() -> None:
     and makes a live, read-only call to the Gmail API.
     """
     try:
-        # 1. Get the client using the abstract factory
         client = mail_client_api.get_client(interactive=False)
-
-        # 2. Assert that we received the correct implementation
         assert isinstance(client, gmail_client_impl.GmailClient)
 
     except FileNotFoundError:
@@ -53,7 +43,6 @@ def test_dependency_injection_works() -> None:
         assert hasattr(client, "mark_as_read")
     except RuntimeError as e:
         if "No valid credentials found" in str(e):
-            # This is expected in CI without credentials - the factory works, just can't authenticate
             pass
         else:
             raise

@@ -1,14 +1,3 @@
-"""Integration tests for mail_client_service.
-
-This module tests the integration between the service layer and the underlying
-mail client implementation. It verifies that the service correctly uses the
-mail_client_adapter to call the running mail_client_service, which in turn
-calls the mocked gmail_client_impl.
-
-The tests ensure all layers are connected correctly:
-- ServiceClient (mail_client_adapter) -> FastAPI Service -> Mocked Gmail Client
-"""
-
 import sys
 from pathlib import Path
 

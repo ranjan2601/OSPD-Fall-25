@@ -4,15 +4,15 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-# Add the mail_client_service src to path
 service_src = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(service_src))
 
-from mail_client_service import ServiceClient
 from mail_client_service._impl import ServiceMessage
 from mail_client_service.generated.mail_client_service_api_client.models.delete_response import DeleteResponse
 from mail_client_service.generated.mail_client_service_api_client.models.mark_read_response import MarkReadResponse
 from mail_client_service.generated.mail_client_service_api_client.models.message_response import MessageResponse
+
+from mail_client_service import ServiceClient
 
 
 class TestServiceMessage:
