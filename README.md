@@ -24,8 +24,26 @@ source .venv/bin/activate
 ```
 
 ### Run the FastAPI Server
+
+**Option 1: Run locally**
 ```bash
 uv run uvicorn src.mail_client_service.main:app --reload
+```
+
+**Option 2: Run with Docker**
+```bash
+# Build the Docker image
+docker build -t mail-client-service .
+
+# Run the container
+docker run -d -p 8000:8000 --name mail-service mail-client-service
+
+# Test the service
+curl http://localhost:8000/
+curl http://localhost:8000/messages
+
+# Stop the container
+docker stop mail-service && docker rm mail-service
 ```
 
 ### Run Tests
