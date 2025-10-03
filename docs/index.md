@@ -1,5 +1,43 @@
-# Welcome to the Mail Client Template
+# Welcome to the Mail Client Project
 
-This project is a professional-grade template for a modern Python application, built using a component-based architecture with a clear separation between interface and implementation.
+This project demonstrates a professional-grade, component-based architecture for a modern Python application that interacts with the Gmail API through both a direct client and a FastAPI service.
 
-This documentation site provides an overview of the project's architecture, API contracts, and usage guidelines.
+## Quick Start
+
+### Installation
+```bash
+# Install dependencies
+uv sync --all-packages --extra dev
+
+# Activate virtual environment
+source .venv/bin/activate  # macOS/Linux
+```
+
+### Run the FastAPI Server
+```bash
+# Option 1: Run locally
+uv run uvicorn src.mail_client_service.main:app --reload
+
+# Option 2: Run with Docker
+docker build -t mail-client-service .
+docker run -d -p 8000:8000 --name mail-service mail-client-service
+```
+
+### Run Tests
+```bash
+# Unit tests only
+uv run pytest src/
+
+# All CI-compatible tests
+uv run pytest src/ tests/ -m "not local_credentials"
+```
+
+## Project Components
+
+This project consists of three main packages:
+
+1. **`mail_client_api`** - Abstract base classes defining the mail client interface
+2. **`gmail_client_impl`** - Gmail-specific implementation using Google API
+3. **`mail_client_service`** - FastAPI service wrapping the mail client with REST endpoints
+
+This documentation provides detailed information about the architecture, API contracts, and usage guidelines.
