@@ -9,6 +9,45 @@ This repository serves as a professional-grade template for a modern Python proj
 
 The project emphasizes a strict separation of concerns, dependency injection, and a comprehensive, automated toolchain to enforce code quality and best practices.
 
+## Quick Start
+
+### Setup
+```bash
+# Install dependencies
+uv sync --all-packages --extra dev
+
+# Activate virtual environment
+# macOS / Linux
+source .venv/bin/activate
+# Windows (PowerShell)
+.venv\Scripts\Activate.ps1
+```
+
+### Run the FastAPI Server
+```bash
+uv run uvicorn src.mail_client_service.main:app --reload
+```
+
+### Run Tests
+```bash
+# Type checking
+uv run mypy src tests
+
+# Unit tests only
+uv run pytest src/
+
+# All tests except those requiring local credentials (CI-compatible)
+uv run pytest src/ tests/ -m "not local_credentials"
+```
+
+### Gmail Authentication
+To connect to your Gmail account:
+
+1. Follow the [Google Cloud instructions](https://developers.google.com/gmail/api/quickstart/python#authorize_credentials_for_a_desktop_application) to enable the Gmail API and download OAuth 2.0 credentials
+2. Rename the downloaded file to `credentials.json` and place it in the project root
+3. Set `interactive=True` in `main.py` and run it
+4. Follow the command-line instructions to log in and authorize the application
+
 ## Architectural Philosophy
 
 This project is built on the principle of "programming integrated over time." The architecture is designed to combat complexity and ensure the system is maintainable and evolvable.
