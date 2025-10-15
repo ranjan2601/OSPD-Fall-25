@@ -24,6 +24,11 @@ build/
 .vscode/
 .idea/
 
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
 # MkDocs build artifacts
 site/
 

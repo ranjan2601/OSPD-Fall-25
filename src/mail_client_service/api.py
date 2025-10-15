@@ -1,16 +1,11 @@
-import sys
-from pathlib import Path
+import logging
 
 from fastapi import APIRouter, HTTPException
 
-mail_client_api_path = Path(__file__).parent.parent / "mail_client_api/src"
-gmail_client_impl_path = Path(__file__).parent.parent / "gmail_client_impl/src"
-
-sys.path.append(str(mail_client_api_path))
-sys.path.append(str(gmail_client_impl_path))
-
 import gmail_client_impl  # noqa: F401
 from mail_client_api import get_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -78,10 +73,8 @@ async def get_messages() -> dict[str, list[dict[str, str]]]:
             ],
         }
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error: {e!s}")
+        logger.exception("Error fetching messages: %s", e)
+        raise HTTPException(status_code=500, detail=f"Error fetching messages: {e!s}")
 
 
 @router.get("/messages/{message_id}")

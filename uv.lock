@@ -520,6 +520,8 @@ version = "0.1.0"
 source = { editable = "src/mail_client_service" }
 dependencies = [
     { name = "fastapi" },
+    { name = "gmail-client-impl" },
+    { name = "mail-client-api" },
     { name = "pydantic" },
     { name = "uvicorn" },
 ]
@@ -536,7 +538,9 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi" },
+    { name = "gmail-client-impl", editable = "src/gmail_client_impl" },
     { name = "httpx", marker = "extra == 'dev'" },
+    { name = "mail-client-api", editable = "src/mail_client_api" },
     { name = "openapi-python-client", marker = "extra == 'dev'", specifier = ">=0.15.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },

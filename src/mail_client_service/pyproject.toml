@@ -7,6 +7,8 @@ dependencies = [
     "fastapi",
     "uvicorn",
     "pydantic>=2.0.0",
+    "mail-client-api",
+    "gmail-client-impl",
 ]
 
 [project.optional-dependencies]
@@ -27,3 +29,4 @@ packages = ["src/mail_client_service"]
 
 [tool.uv.sources]
 mail-client-api = { workspace = true }
+gmail-client-impl = { workspace = true }
