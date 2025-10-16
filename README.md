@@ -5,6 +5,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://python.org)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://www.docker.com/)
+[![Live Demo](https://img.shields.io/badge/demo-live-success)](https://ospd-mail-client-hw1.fly.dev/docs)
 
 This repository serves as a professional-grade template for a modern Python project. It demonstrates a robust, component-based architecture by building the core components for an AI-powered email assistant that interacts with the Gmail API.
 
@@ -26,12 +27,20 @@ source .venv/bin/activate
 
 ### Run the FastAPI Server
 
-**Option 1: Run locally**
+**Option 1: Use the Live Demo** ⭐
+The service is deployed and running on fly.io:
+- **API Documentation (Swagger UI)**: https://ospd-mail-client-hw1.fly.dev/docs
+- **Alternative Docs (ReDoc)**: https://ospd-mail-client-hw1.fly.dev/redoc
+- **API Endpoint**: https://ospd-mail-client-hw1.fly.dev/messages
+
+> Note: The deployed app uses a mock client with 3 test messages for demonstration purposes.
+
+**Option 2: Run locally**
 ```bash
 uv run uvicorn src.mail_client_service.main:app --reload
 ```
 
-**Option 2: Run with Docker**
+**Option 3: Run with Docker**
 ```bash
 # Build the Docker image
 docker build -t mail-client-service .

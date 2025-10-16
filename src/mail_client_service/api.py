@@ -73,7 +73,7 @@ async def get_messages() -> dict[str, list[dict[str, str]]]:
             ],
         }
     except Exception as e:
-        logger.exception("Error fetching messages: %s", e)
+        logger.exception("Error fetching messages")
         raise HTTPException(status_code=500, detail=f"Error fetching messages: {e!s}")
 
 
