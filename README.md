@@ -1,13 +1,80 @@
 # Python Application Template: A Component-Based Mail Client
 
-[![CircleCI](https://circleci.com/gh/ivanearisty/oss-taapp.svg?style=shield)](https://circleci.com/gh/ivanearisty/oss-taapp)
-[![Coverage](https://img.shields.io/badge/coverage-85%2B%25-brightgreen)](https://circleci.com/gh/ivanearisty/oss-taapp)
+[![CircleCI](https://dl.circleci.com/status-badge/img/circleci/QJXxW5Kg3MhaRTXDr47FTf/bcb4e941-0b5f-479a-889b-9b98e69919c2/tree/dev.svg?style=shield)](https://dl.circleci.com/status-badge/redirect/circleci/QJXxW5Kg3MhaRTXDr47FTf/bcb4e941-0b5f-479a-889b-9b98e69919c2/tree/dev)
+[![Coverage](https://img.shields.io/badge/coverage-91%2B%25-brightgreen)](https://app.circleci.com/pipelines/circleci/QJXxW5Kg3MhaRTXDr47FTf/bcb4e941-0b5f-479a-889b-9b98e69919c2)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://python.org)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Docker](https://img.shields.io/badge/docker-ready-blue)](https://www.docker.com/)
+[![Live Demo](https://img.shields.io/badge/demo-live-success)](https://ospd-mail-client-hw1.fly.dev/docs)
 
 This repository serves as a professional-grade template for a modern Python project. It demonstrates a robust, component-based architecture by building the core components for an AI-powered email assistant that interacts with the Gmail API.
 
 The project emphasizes a strict separation of concerns, dependency injection, and a comprehensive, automated toolchain to enforce code quality and best practices.
+
+## Quick Start
+
+### Setup
+```bash
+# Install dependencies
+uv sync --all-packages --extra dev
+
+# Activate virtual environment
+# macOS / Linux
+source .venv/bin/activate
+# Windows (PowerShell)
+.venv\Scripts\Activate.ps1
+```
+
+### Run the FastAPI Server
+
+**Option 1: Use the Live Demo** 
+The service is deployed and running on fly.io:
+- **API Documentation (Swagger UI)**: https://ospd-mail-client-hw1.fly.dev/docs
+- **Alternative Docs (ReDoc)**: https://ospd-mail-client-hw1.fly.dev/redoc
+- **API Endpoint**: https://ospd-mail-client-hw1.fly.dev/messages
+
+> Note: The deployed app uses a mock client with 3 test messages for demonstration purposes.
+
+**Option 2: Run locally**
+```bash
+uv run uvicorn mail_client_service.main:app --reload
+```
+
+**Option 3: Run with Docker**
+```bash
+# Build the Docker image
+docker build -t mail-client-service .
+
+# Run the container
+docker run -d -p 8000:8000 --name mail-service mail-client-service
+
+# Test the service
+curl http://localhost:8000/
+curl http://localhost:8000/messages
+
+# Stop the container
+docker stop mail-service && docker rm mail-service
+```
+
+### Run Tests
+```bash
+# Type checking
+uv run mypy src tests
+
+# Unit tests only
+uv run pytest src/
+
+# All tests except those requiring local credentials (CI-compatible)
+uv run pytest src/ tests/ -m "not local_credentials"
+```
+
+### Gmail Authentication
+To connect to your Gmail account:
+
+1. Follow the [Google Cloud instructions](https://developers.google.com/gmail/api/quickstart/python#authorize_credentials_for_a_desktop_application) to enable the Gmail API and download OAuth 2.0 credentials
+2. Rename the downloaded file to `credentials.json` and place it in the project root
+3. Set `interactive=True` in `main.py` and run it
+4. Follow the command-line instructions to log in and authorize the application
 
 ## Architectural Philosophy
 
@@ -19,18 +86,24 @@ This project is built on the principle of "programming integrated over time." Th
 
 ## Core Components
 
-The project is a `uv` workspace containing four primary packages:
+The project is a `uv` workspace containing seven primary packages:
 
-3.  **`mail_client_api`**: Defines the abstract `Client` base class (ABC). This is the contract for what actions a mail client can perform (e.g., `get_messages`).
-4.  **`gmail_client_impl`**: Provides the `GmailClient` class, a concrete implementation that uses the Google API to perform the actions defined in the `Client` abstraction.
+1.  **`mail_client_api`**: Defines the abstract `Client` base class (ABC). This is the contract for what actions a mail client can perform (e.g., `get_messages`).
+2.  **`gmail_client_impl`**: Provides the `GmailClient` class, a concrete implementation that uses the Google API to perform the actions defined in the `Client` abstraction.
+3.  **`mail_client_service`**: FastAPI server providing HTTP REST API for mail client operations with dependency injection.
+4.  **`mail_client_service_client`**: Auto-generated HTTP client using `openapi-python-client` for programmatic API access.
+5.  **`mail_client_adapter`**: Adapter implementing `mail_client_api.Client` that calls the HTTP service (drop-in replacement for `gmail_client_impl`).
 
 ## Project Structure
 
 ```
 ta-assignment/
 ├── src/                          # Source packages (uv workspace members)
-│   ├── mail_client_api/          # Abstract mail client base class (ABC)  
-│   └── gmail_client_impl/        # Gmail-specific client implementation
+│   ├── mail_client_api/          # Abstract mail client base class (ABC)
+│   ├── gmail_client_impl/        # Gmail-specific client implementation
+│   ├── mail_client_service/      # FastAPI HTTP REST API server
+│   ├── mail_client_service_client/ # Auto-generated HTTP client
+│   └── mail_client_adapter/      # Adapter for HTTP service client
 ├── tests/                        # Integration and E2E tests
 │   ├── integration/              # Component integration tests
 │   └── e2e/                      # End-to-end application tests
