@@ -1,11 +1,10 @@
-import sys
-from pathlib import Path
 
 import httpx
 import pytest
 
 # Import the service client (mail_client_adapter)
 from mail_client_adapter._impl import ServiceMessage
+
 from mail_client_adapter import ServiceClient
 
 # Mark all tests in this file as integration tests

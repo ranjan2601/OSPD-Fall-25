@@ -1,9 +1,6 @@
 from unittest.mock import Mock, patch
 
 import pytest
-
-from mail_client_adapter._impl import ServiceMessage
-from mail_client_adapter import ServiceClient
 from mail_client_service_client.mail_client_service_api_client.models.delete_response import (
     DeleteResponse,
 )
@@ -13,6 +10,9 @@ from mail_client_service_client.mail_client_service_api_client.models.mark_read_
 from mail_client_service_client.mail_client_service_api_client.models.message_response import (
     MessageResponse,
 )
+
+from mail_client_adapter import ServiceClient
+from mail_client_adapter._impl import ServiceMessage
 
 
 class TestServiceMessage:

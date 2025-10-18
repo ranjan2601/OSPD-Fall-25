@@ -58,7 +58,6 @@ def test_message_dependency_injection() -> None:
     """Tests that importing gmail_message_impl overrides message.get_message."""
     import base64
     import sys
-    import importlib
 
     # Clear any patched modules from previous tests
     sys.modules.pop("mail_client_api", None)
@@ -101,10 +100,8 @@ def test_factory_functions_work_together() -> None:
     sys.modules.pop("gmail_client_impl", None)
 
     # Import mail_client_api first
-    import mail_client_api
-
     # Import gmail_client_impl which calls register() and replaces get_client in mail_client_api
-    import gmail_client_impl
+    import mail_client_api
     from gmail_client_impl import get_client_impl
 
     # Verify that mail_client_api.get_client is now our implementation

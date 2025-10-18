@@ -21,4 +21,4 @@ RUN uv sync --frozen --all-packages --extra dev
 EXPOSE 8000
 
 # Run the FastAPI service
-CMD ["uv", "run", "uvicorn", "src.mail_client_service.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "mail_client_service.main:app", "--host", "0.0.0.0", "--port", "8000"]

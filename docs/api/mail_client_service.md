@@ -103,7 +103,7 @@ Marks a message as read.
 
 ### Locally with uvicorn
 ```bash
-uv run uvicorn src.mail_client_service.main:app --reload
+uv run uvicorn mail_client_service.main:app --reload
 ```
 
 The service will be available at `http://localhost:8000`

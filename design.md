@@ -266,7 +266,7 @@ curl http://localhost:8000/openapi.json > openapi_schema.json
 # 2. Generate Python client from schema
 openapi-python-client generate \
   --path openapi_schema.json \
-  --output-path src/mail_client_service/generated
+  --output-path src/mail_client_service_client
 ```
 
 #### Generated Structure
@@ -372,7 +372,7 @@ RUN uv sync --frozen --all-packages --extra dev
 
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "src.mail_client_service.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "mail_client_service.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 #### Key Design Decisions

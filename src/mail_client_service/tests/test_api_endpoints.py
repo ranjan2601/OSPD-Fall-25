@@ -1,10 +1,11 @@
 """Unit tests for FastAPI endpoints using dependency injection."""
 
-import pytest
-from fastapi.testclient import TestClient
 from unittest.mock import MagicMock
 
+import pytest
+from fastapi.testclient import TestClient
 from mail_client_api import Client
+
 from mail_client_service.api import get_mail_client
 from mail_client_service.main import app
 
