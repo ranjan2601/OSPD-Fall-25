@@ -1,18 +1,18 @@
-import sys
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 
-service_src = Path(__file__).parent.parent / "src"
-sys.path.insert(0, str(service_src))
-
-from mail_client_service._impl import ServiceMessage
-from mail_client_service.generated.mail_client_service_api_client.models.delete_response import DeleteResponse
-from mail_client_service.generated.mail_client_service_api_client.models.mark_read_response import MarkReadResponse
-from mail_client_service.generated.mail_client_service_api_client.models.message_response import MessageResponse
-
-from mail_client_service import ServiceClient
+from mail_client_adapter._impl import ServiceMessage
+from mail_client_adapter import ServiceClient
+from mail_client_service_client.mail_client_service_api_client.models.delete_response import (
+    DeleteResponse,
+)
+from mail_client_service_client.mail_client_service_api_client.models.mark_read_response import (
+    MarkReadResponse,
+)
+from mail_client_service_client.mail_client_service_api_client.models.message_response import (
+    MessageResponse,
+)
 
 
 class TestServiceMessage:
@@ -47,7 +47,7 @@ class TestServiceClient:
         client = ServiceClient("http://test:8080")
         assert client._client.get_httpx_client().base_url == "http://test:8080"
 
-    @patch("mail_client_service._impl.get_message_messages_message_id_get")
+    @patch("mail_client_adapter._impl.get_message_messages_message_id_get")
     def test_get_message_success(self, mock_get_message: Mock) -> None:
         """Test successful message retrieval."""
         mock_response = MessageResponse(
@@ -68,7 +68,7 @@ class TestServiceClient:
         assert message.subject == "Test Message"
         mock_get_message.sync.assert_called_once()
 
-    @patch("mail_client_service._impl.get_message_messages_message_id_get")
+    @patch("mail_client_adapter._impl.get_message_messages_message_id_get")
     def test_get_message_not_found(self, mock_get_message: Mock) -> None:
         """Test message not found scenario."""
         mock_get_message.sync.return_value = None
@@ -78,7 +78,7 @@ class TestServiceClient:
         with pytest.raises(ValueError, match="Message msg_404 not found"):
             client.get_message("msg_404")
 
-    @patch("mail_client_service._impl.delete_message_messages_message_id_delete")
+    @patch("mail_client_adapter._impl.delete_message_messages_message_id_delete")
     def test_delete_message_success(self, mock_delete: Mock) -> None:
         """Test successful message deletion."""
         mock_delete.sync.return_value = DeleteResponse(success=True)
@@ -89,7 +89,7 @@ class TestServiceClient:
         assert result is True
         mock_delete.sync.assert_called_once()
 
-    @patch("mail_client_service._impl.delete_message_messages_message_id_delete")
+    @patch("mail_client_adapter._impl.delete_message_messages_message_id_delete")
     def test_delete_message_failure(self, mock_delete: Mock) -> None:
         """Test failed message deletion."""
         mock_delete.sync.return_value = DeleteResponse(success=False)
@@ -99,7 +99,7 @@ class TestServiceClient:
 
         assert result is False
 
-    @patch("mail_client_service._impl.delete_message_messages_message_id_delete")
+    @patch("mail_client_adapter._impl.delete_message_messages_message_id_delete")
     def test_delete_message_none_response(self, mock_delete: Mock) -> None:
         """Test message deletion with None response."""
         mock_delete.sync.return_value = None
@@ -109,7 +109,7 @@ class TestServiceClient:
 
         assert result is False
 
-    @patch("mail_client_service._impl.mark_as_read_messages_message_id_read_put")
+    @patch("mail_client_adapter._impl.mark_as_read_messages_message_id_read_put")
     def test_mark_as_read_success(self, mock_mark_read: Mock) -> None:
         """Test successful mark as read."""
         mock_mark_read.sync.return_value = MarkReadResponse(success=True)
@@ -120,7 +120,7 @@ class TestServiceClient:
         assert result is True
         mock_mark_read.sync.assert_called_once()
 
-    @patch("mail_client_service._impl.mark_as_read_messages_message_id_read_put")
+    @patch("mail_client_adapter._impl.mark_as_read_messages_message_id_read_put")
     def test_mark_as_read_failure(self, mock_mark_read: Mock) -> None:
         """Test failed mark as read."""
         mock_mark_read.sync.return_value = MarkReadResponse(success=False)
@@ -130,7 +130,7 @@ class TestServiceClient:
 
         assert result is False
 
-    @patch("mail_client_service._impl.get_messages_messages_get")
+    @patch("mail_client_adapter._impl.get_messages_messages_get")
     def test_get_messages_success(self, mock_get_messages: Mock) -> None:
         """Test successful messages retrieval."""
         mock_responses = [
@@ -161,7 +161,7 @@ class TestServiceClient:
         assert messages[1].id == "msg_2"
         mock_get_messages.sync.assert_called_once_with(client=client._client, max_results=2)
 
-    @patch("mail_client_service._impl.get_messages_messages_get")
+    @patch("mail_client_adapter._impl.get_messages_messages_get")
     def test_get_messages_empty(self, mock_get_messages: Mock) -> None:
         """Test empty messages response."""
         mock_get_messages.sync.return_value = None
@@ -171,7 +171,7 @@ class TestServiceClient:
 
         assert len(messages) == 0
 
-    @patch("mail_client_service._impl.get_messages_messages_get")
+    @patch("mail_client_adapter._impl.get_messages_messages_get")
     def test_get_messages_default_limit(self, mock_get_messages: Mock) -> None:
         """Test get_messages with default limit."""
         mock_get_messages.sync.return_value = []

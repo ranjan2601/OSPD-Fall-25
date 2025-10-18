@@ -4,14 +4,9 @@ from pathlib import Path
 import httpx
 import pytest
 
-# Add service src to path for imports
-service_src = Path(__file__).parent.parent.parent / "src" / "mail_client_service" / "src"
-sys.path.insert(0, str(service_src))
-
 # Import the service client (mail_client_adapter)
-from mail_client_service._impl import ServiceMessage
-
-from mail_client_service import ServiceClient
+from mail_client_adapter._impl import ServiceMessage
+from mail_client_adapter import ServiceClient
 
 # Mark all tests in this file as integration tests
 pytestmark = pytest.mark.integration
@@ -216,7 +211,7 @@ def test_service_message_wrapper_integration() -> None:
     This test verifies that the ServiceMessage class properly implements
     the mail_client_api.message.Message interface.
     """
-    from mail_client_service.generated.mail_client_service_api_client.models.message_response import MessageResponse
+    from mail_client_service_client.mail_client_service_api_client.models.message_response import MessageResponse
 
     # Create a mock service response
     mock_response = MessageResponse(

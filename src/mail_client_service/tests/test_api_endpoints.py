@@ -1,232 +1,360 @@
-import sys
-import types
-import importlib
+"""Unit tests for FastAPI endpoints using dependency injection."""
+
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from unittest.mock import MagicMock
+
+from mail_client_api import Client
+from mail_client_service.api import get_mail_client
+from mail_client_service.main import app
 
 
 @pytest.fixture
-def client(monkeypatch):
-    """
-    Build a TestClient for the FastAPI router, while injecting a fake
-    mail_client_api.get_client BEFORE api.py is imported (to avoid
-    NotImplementedError during import).
-    """
-    # Fake module to satisfy
-    fake_mod = types.ModuleType("mail_client_api")
+def mock_client():
+    """Create a mock mail client for testing."""
+    mock = MagicMock(spec=Client)
 
-    # Add a fake Client class for gmail_client_impl to inherit from
-    class FakeClient:
-        pass
+    # Create a mock message
+    mock_message = MagicMock()
+    mock_message.id = "m1"
+    mock_message.subject = "Test Subject"
+    mock_message.from_ = "sender@example.com"
+    mock_message.body = "Test body"
 
-    fake_mod.Client = FakeClient
+    # Configure default behaviors
+    mock.get_messages.return_value = [mock_message]
+    mock.get_message.return_value = mock_message
+    mock.delete_message.return_value = True
+    mock.mark_as_read.return_value = True
 
-    def fake_get_client(*, interactive: bool = False):
-        # one fake message object with attrs used by api.py
-        msg = types.SimpleNamespace(id="m1", subject="Hello", from_="a@x.com", body="Test")
-        fake = types.SimpleNamespace()
-        fake.get_messages = lambda max_results=10: [msg]
-        fake.get_message = lambda message_id: msg if message_id == "m1" else (_ for _ in ()).throw(KeyError("not found"))
-        fake.delete_message = lambda message_id: True if message_id == "m1" else (_ for _ in ()).throw(KeyError("not found"))
-        fake.mark_as_read = lambda message_id: True if message_id == "m1" else (_ for _ in ()).throw(KeyError("not found"))
-        return fake
-
-    fake_mod.get_client = fake_get_client
-    sys.modules["mail_client_api"] = fake_mod
-
-    #  import of api.py after patching
-    sys.modules.pop("mail_client_service.api", None)
-    sys.modules.pop("gmail_client_impl", None)
-    import mail_client_service.api as api
-
-    app = FastAPI()
-    app.include_router(api.router)
-    return TestClient(app)
+    return mock
 
 
 @pytest.fixture
-def api_module(client):
-    """
-    Provide the imported api module (after the fake client is installed),
-    so we can monkeypatch api.mail_client methods in branch tests.
-    """
-    import mail_client_service.api as api
+def test_client(mock_client):
+    """Create a test client with mocked dependencies."""
+    # Override the dependency
+    app.dependency_overrides[get_mail_client] = lambda: mock_client
 
-    return api
+    # Create test client
+    client = TestClient(app)
+
+    yield client
+
+    # Clean up
+    app.dependency_overrides.clear()
 
 
-# GET /messages
-def test_get_messages_success(client: TestClient):
-    r = client.get("/messages")
-    assert r.status_code == 200
-    data = r.json()
+# GET /messages tests
+def test_get_messages_success(test_client, mock_client):
+    """Test successful retrieval of messages."""
+    # Act
+    response = test_client.get("/messages")
+
+    # Assert
+    assert response.status_code == 200
+    data = response.json()
     assert "messages" in data
-    # Verify we get messages back (could be from fake client or MockClient)
-    assert len(data["messages"]) >= 1
-    # Verify message structure
-    first_msg = data["messages"][0]
-    assert "id" in first_msg
-    assert "sender" in first_msg
-    assert "subject" in first_msg
-    assert "body" in first_msg
+    assert len(data["messages"]) == 1
+    assert data["messages"][0]["id"] == "m1"
+    assert data["messages"][0]["subject"] == "Test Subject"
+    assert data["messages"][0]["sender"] == "sender@example.com"
+    assert data["messages"][0]["body"] == "Test body"
+
+    # Verify mock was called
+    mock_client.get_messages.assert_called_once()
 
 
-def test_get_messages_empty(client, api_module, monkeypatch):
-    monkeypatch.setattr(api_module.mail_client, "get_messages", lambda max_results=10: [])
-    r = client.get("/messages")
-    assert r.status_code == 200
-    assert r.json()["messages"] == []
+def test_get_messages_empty(test_client, mock_client):
+    """Test retrieval when no messages exist."""
+    # Arrange
+    mock_client.get_messages.return_value = []
+
+    # Act
+    response = test_client.get("/messages")
+
+    # Assert
+    assert response.status_code == 200
+    assert response.json()["messages"] == []
 
 
-def test_get_messages_500(client, api_module, monkeypatch):
-    def boom(*_a, **_k):
-        raise Exception("boom")
+def test_get_messages_500(test_client, mock_client):
+    """Test error handling when client raises exception."""
+    # Arrange
+    mock_client.get_messages.side_effect = Exception("Database error")
 
-    monkeypatch.setattr(api_module.mail_client, "get_messages", boom)
-    r = client.get("/messages")
-    assert r.status_code == 500
+    # Act
+    response = test_client.get("/messages")
 
-
-# GET /messages/{message_id}
-def test_get_message_ok(client):
-    r = client.get("/messages/m1")
-    assert r.status_code == 200
-    body = r.json()
-    assert "message" in body and body["message"]["id"] == "m1"
+    # Assert
+    assert response.status_code == 500
+    assert "Error fetching messages" in response.json()["detail"]
 
 
-def test_get_message_not_found(client):
-    r = client.get("/messages/does-not-exist")
-    assert r.status_code == 404
+# GET /messages/{message_id} tests
+def test_get_message_ok(test_client, mock_client):
+    """Test successful retrieval of a single message."""
+    # Act
+    response = test_client.get("/messages/m1")
+
+    # Assert
+    assert response.status_code == 200
+    data = response.json()
+    assert "message" in data
+    assert data["message"]["id"] == "m1"
+    assert data["message"]["subject"] == "Test Subject"
+
+    # Verify mock was called with correct parameter
+    mock_client.get_message.assert_called_once_with("m1")
 
 
-def test_get_message_500(client, api_module, monkeypatch):
-    def boom(_id):
-        raise Exception("kaboom")
+def test_get_message_not_found(test_client, mock_client):
+    """Test 404 when message doesn't exist."""
+    # Arrange
+    mock_client.get_message.side_effect = KeyError("Message not found")
 
-    monkeypatch.setattr(api_module.mail_client, "get_message", boom)
-    r = client.get("/messages/m1")
-    assert r.status_code == 500
+    # Act
+    response = test_client.get("/messages/nonexistent")
 
-
-#  DELETE /messages/{message_id}
-def test_delete_message_ok(client):
-    r = client.delete("/messages/m1")
-    assert r.status_code == 200
-    assert r.json()["status"] == "Deleted"
+    # Assert
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
 
 
-def test_delete_message_not_found(client, api_module, monkeypatch):
-    def not_found(_id):
-        raise KeyError("nf")
+def test_get_message_500(test_client, mock_client):
+    """Test error handling for unexpected exceptions."""
+    # Arrange
+    mock_client.get_message.side_effect = Exception("Unexpected error")
 
-    monkeypatch.setattr(api_module.mail_client, "delete_message", not_found)
-    r = client.delete("/messages/does-not-exist")
-    assert r.status_code == 404
+    # Act
+    response = test_client.get("/messages/m1")
 
-
-def test_delete_message_failed_returns_500(client, api_module, monkeypatch):
-    # API treats False as failure -> 500
-    monkeypatch.setattr(api_module.mail_client, "delete_message", lambda _id: False)
-    r = client.delete("/messages/m1")
-    assert r.status_code == 500
+    # Assert
+    assert response.status_code == 500
 
 
-def test_delete_message_500(client, api_module, monkeypatch):
-    def boom(_id):
-        raise Exception("boom")
+# DELETE /messages/{message_id} tests
+def test_delete_message_ok(test_client, mock_client):
+    """Test successful deletion of a message."""
+    # Act
+    response = test_client.delete("/messages/m1")
 
-    monkeypatch.setattr(api_module.mail_client, "delete_message", boom)
-    r = client.delete("/messages/m1")
-    assert r.status_code == 500
+    # Assert
+    assert response.status_code == 200
+    data = response.json()
+    assert data["message_id"] == "m1"
+    assert data["status"] == "Deleted"
 
-
-#  POST /messages/{message_id}/mark-as-read
-def test_mark_as_read_ok(client):
-    r = client.post("/messages/m1/mark-as-read")
-    assert r.status_code == 200
-    assert r.json()["status"] == "Marked as read"
-
-
-def test_mark_as_read_not_found(client, api_module, monkeypatch):
-    def not_found(_id):
-        raise KeyError("nf")
-
-    monkeypatch.setattr(api_module.mail_client, "mark_as_read", not_found)
-    r = client.post("/messages/does-not-exist/mark-as-read")
-    assert r.status_code == 404
+    # Verify mock was called
+    mock_client.delete_message.assert_called_once_with("m1")
 
 
-def test_mark_as_read_failed_returns_500(client, api_module, monkeypatch):
-    monkeypatch.setattr(api_module.mail_client, "mark_as_read", lambda _id: False)
-    r = client.post("/messages/m1/mark-as-read")
-    assert r.status_code == 500
+def test_delete_message_not_found(test_client, mock_client):
+    """Test 404 when trying to delete non-existent message."""
+    # Arrange
+    mock_client.delete_message.side_effect = KeyError("Message not found")
+
+    # Act
+    response = test_client.delete("/messages/nonexistent")
+
+    # Assert
+    assert response.status_code == 404
 
 
-def test_mark_as_read_500(client, api_module, monkeypatch):
-    def boom(_id):
-        raise Exception("boom")
+def test_delete_message_failed_returns_500(test_client, mock_client):
+    """Test 500 when deletion fails."""
+    # Arrange
+    mock_client.delete_message.return_value = False
 
-    monkeypatch.setattr(api_module.mail_client, "mark_as_read", boom)
-    r = client.post("/messages/m1/mark-as-read")
-    assert r.status_code == 500
+    # Act
+    response = test_client.delete("/messages/m1")
 
-
-# extra coverage on import-time branches and modules
-def test_api_import_fallback_to_mock_client(monkeypatch):
-    """
-    Cover the import-time branch where get_client raises a RuntimeError
-    containing 'No valid credentials found' and api.py builds a MockClient.
-    """
-    import sys, types, importlib
-
-    fake_mod = types.ModuleType("mail_client_api")
-
-    def raising_get_client(*, interactive: bool = False):
-        raise RuntimeError("No valid credentials found for testing")
-
-    fake_mod.get_client = raising_get_client
-    sys.modules["mail_client_api"] = fake_mod
-
-    sys.modules.pop("mail_client_service.api", None)
-    import mail_client_service.api as api
-
-    # Confirm fallback client is present and usable
-    msgs = list(api.mail_client.get_messages())
-    assert len(msgs) >= 1
-    assert hasattr(msgs[0], "id")
+    # Assert
+    assert response.status_code == 500
+    assert "Failed to delete" in response.json()["detail"]
 
 
-def test_api_import_rethrows_other_runtimeerror(monkeypatch):
-    """
-    Cover the 'else: raise' path in the import-time try/except.
-    """
-    import sys, types, importlib
+def test_delete_message_500(test_client, mock_client):
+    """Test error handling for unexpected exceptions."""
+    # Arrange
+    mock_client.delete_message.side_effect = Exception("Unexpected error")
 
-    fake_mod = types.ModuleType("mail_client_api")
+    # Act
+    response = test_client.delete("/messages/m1")
 
-    def raising_get_client(*, interactive: bool = False):
-        raise RuntimeError("some other runtime error")  # triggers 'else: raise'
-
-    fake_mod.get_client = raising_get_client
-    sys.modules["mail_client_api"] = fake_mod
-
-    sys.modules.pop("mail_client_service.api", None)
-    with pytest.raises(RuntimeError):
-        importlib.import_module("mail_client_service.api")
+    # Assert
+    assert response.status_code == 500
 
 
-def test_import_main_for_coverage(client):
-    """
-    Import mail_client_service.main so its top-level code is executed.
-    Depends on 'client' fixture so the fake mail_client_api is already installed.
-    """
-    import mail_client_service.main
+# POST /messages/{message_id}/mark-as-read tests
+def test_mark_as_read_ok(test_client, mock_client):
+    """Test successful marking of message as read."""
+    # Act
+    response = test_client.post("/messages/m1/mark-as-read")
+
+    # Assert
+    assert response.status_code == 200
+    data = response.json()
+    assert data["message_id"] == "m1"
+    assert data["status"] == "Marked as read"
+
+    # Verify mock was called
+    mock_client.mark_as_read.assert_called_once_with("m1")
 
 
-def test_import_test_module_for_coverage(client):
-    """
-    Import mail_client_service.test so its top-level code is executed.
-    """
-    import mail_client_service.test
+def test_mark_as_read_not_found(test_client, mock_client):
+    """Test 404 when message doesn't exist."""
+    # Arrange
+    mock_client.mark_as_read.side_effect = KeyError("Message not found")
+
+    # Act
+    response = test_client.post("/messages/nonexistent/mark-as-read")
+
+    # Assert
+    assert response.status_code == 404
+
+
+def test_mark_as_read_failed_returns_500(test_client, mock_client):
+    """Test 500 when marking as read fails."""
+    # Arrange
+    mock_client.mark_as_read.return_value = False
+
+    # Act
+    response = test_client.post("/messages/m1/mark-as-read")
+
+    # Assert
+    assert response.status_code == 500
+    assert "Failed to mark" in response.json()["detail"]
+
+
+def test_mark_as_read_500(test_client, mock_client):
+    """Test error handling for unexpected exceptions."""
+    # Arrange
+    mock_client.mark_as_read.side_effect = Exception("Unexpected error")
+
+    # Act
+    response = test_client.post("/messages/m1/mark-as-read")
+
+    # Assert
+    assert response.status_code == 500
+
+
+# Root endpoint test
+def test_root_endpoint(test_client):
+    """Test the root health check endpoint."""
+    response = test_client.get("/")
+    assert response.status_code == 200
+    assert response.json() == {"message": "Mail Client Service is running"}
+
+
+# Dependency injection tests
+def test_get_mail_client_with_real_credentials():
+    """Test get_mail_client when real credentials are available."""
+    from unittest.mock import patch
+
+    # Mock get_client where it's used in api.py
+    mock_client = MagicMock(spec=Client)
+    with patch("mail_client_service.api.mail_client_api.get_client", return_value=mock_client):
+        client = get_mail_client()
+        assert client is mock_client
+
+
+def test_get_mail_client_falls_back_to_mock():
+    """Test get_mail_client falls back to mock when no credentials."""
+    from unittest.mock import patch
+
+    # Mock get_client to raise RuntimeError with credentials message
+    with patch(
+        "mail_client_service.api.mail_client_api.get_client",
+        side_effect=RuntimeError("No valid credentials found"),
+    ):
+        client = get_mail_client()
+        # Should return a mock client
+        assert client is not None
+        # Verify it has the expected methods
+        assert hasattr(client, "get_messages")
+        assert hasattr(client, "get_message")
+        assert hasattr(client, "delete_message")
+        assert hasattr(client, "mark_as_read")
+
+
+def test_get_mail_client_propagates_other_runtime_errors():
+    """Test get_mail_client propagates RuntimeErrors that are not credential-related."""
+    from unittest.mock import patch
+
+    # Mock get_client to raise a different RuntimeError
+    with (
+        patch(
+            "mail_client_service.api.mail_client_api.get_client",
+            side_effect=RuntimeError("Database connection failed"),
+        ),
+        pytest.raises(RuntimeError, match="Database connection failed"),
+    ):
+        get_mail_client()
+
+
+def test_mock_client_get_messages():
+    """Test the mock client's get_messages functionality."""
+    from unittest.mock import patch
+
+    # Get the mock client
+    with patch(
+        "mail_client_service.api.mail_client_api.get_client",
+        side_effect=RuntimeError("No valid credentials found"),
+    ):
+        client = get_mail_client()
+        messages = list(client.get_messages(max_results=2))
+
+        # Should return mock messages
+        assert len(messages) <= 3  # Mock has 3 messages
+        assert all(hasattr(msg, "id") for msg in messages)
+        assert all(hasattr(msg, "subject") for msg in messages)
+
+
+def test_mock_client_get_message():
+    """Test the mock client's get_message functionality."""
+    from unittest.mock import patch
+
+    # Get the mock client
+    with patch(
+        "mail_client_service.api.mail_client_api.get_client",
+        side_effect=RuntimeError("No valid credentials found"),
+    ):
+        client = get_mail_client()
+        message = client.get_message("1")
+
+        # Should return a mock message
+        assert message.id == "1"
+        assert hasattr(message, "subject")
+
+
+def test_mock_client_delete_message():
+    """Test the mock client's delete_message functionality."""
+    from unittest.mock import patch
+
+    # Get the mock client
+    with patch(
+        "mail_client_service.api.mail_client_api.get_client",
+        side_effect=RuntimeError("No valid credentials found"),
+    ):
+        client = get_mail_client()
+        result = client.delete_message("1")
+
+        # Should succeed
+        assert result is True
+
+
+def test_mock_client_mark_as_read():
+    """Test the mock client's mark_as_read functionality."""
+    from unittest.mock import patch
+
+    # Get the mock client
+    with patch(
+        "mail_client_service.api.mail_client_api.get_client",
+        side_effect=RuntimeError("No valid credentials found"),
+    ):
+        client = get_mail_client()
+        result = client.mark_as_read("1")
+
+        # Should succeed
+        assert result is True

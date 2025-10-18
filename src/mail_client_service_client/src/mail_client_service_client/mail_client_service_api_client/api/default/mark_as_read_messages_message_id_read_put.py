@@ -1,11 +1,11 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.message_response import MessageResponse
+from ...models.mark_read_response import MarkReadResponse
 from ...types import Response
 
 
@@ -13,30 +13,33 @@ def _get_kwargs(
     message_id: str,
 ) -> dict[str, Any]:
     _kwargs: dict[str, Any] = {
-        "method": "get",
-        "url": f"/messages/{message_id}",
+        "method": "put",
+        "url": f"/messages/{message_id}/read",
     }
 
     return _kwargs
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[MessageResponse]:
+    *,
+    client: AuthenticatedClient | Client,
+    response: httpx.Response,
+) -> MarkReadResponse | None:
     if response.status_code == 200:
-        response_200 = MessageResponse.from_dict(response.json())
+        response_200 = MarkReadResponse.from_dict(response.json())
 
         return response_200
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
-    else:
-        return None
+    return None
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[MessageResponse]:
+    *,
+    client: AuthenticatedClient | Client,
+    response: httpx.Response,
+) -> Response[MarkReadResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -48,9 +51,9 @@ def _build_response(
 def sync_detailed(
     message_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Response[MessageResponse]:
-    """Get Message
+    client: AuthenticatedClient | Client,
+) -> Response[MarkReadResponse]:
+    """Mark As Read
 
     Args:
         message_id (str):
@@ -60,9 +63,9 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[MessageResponse]
-    """
+        Response[MarkReadResponse]
 
+    """
     kwargs = _get_kwargs(
         message_id=message_id,
     )
@@ -77,9 +80,9 @@ def sync_detailed(
 def sync(
     message_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Optional[MessageResponse]:
-    """Get Message
+    client: AuthenticatedClient | Client,
+) -> MarkReadResponse | None:
+    """Mark As Read
 
     Args:
         message_id (str):
@@ -89,9 +92,9 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        MessageResponse
-    """
+        MarkReadResponse
 
+    """
     return sync_detailed(
         message_id=message_id,
         client=client,
@@ -101,9 +104,9 @@ def sync(
 async def asyncio_detailed(
     message_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Response[MessageResponse]:
-    """Get Message
+    client: AuthenticatedClient | Client,
+) -> Response[MarkReadResponse]:
+    """Mark As Read
 
     Args:
         message_id (str):
@@ -113,9 +116,9 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[MessageResponse]
-    """
+        Response[MarkReadResponse]
 
+    """
     kwargs = _get_kwargs(
         message_id=message_id,
     )
@@ -128,9 +131,9 @@ async def asyncio_detailed(
 async def asyncio(
     message_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Optional[MessageResponse]:
-    """Get Message
+    client: AuthenticatedClient | Client,
+) -> MarkReadResponse | None:
+    """Mark As Read
 
     Args:
         message_id (str):
@@ -140,9 +143,9 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        MessageResponse
-    """
+        MarkReadResponse
 
+    """
     return (
         await asyncio_detailed(
             message_id=message_id,

@@ -4,14 +4,7 @@ version = "0.1.0"
 description = "Template repository for a mail client"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = [
-    "google-api-python-client>=2.177.0",
-    "google-auth>=2.40.3",
-    "google-auth-oauthlib>=1.2.2",
-    "python-dotenv>=0.9.9",
-    "fastapi",
-    "uvicorn"
-]
+dependencies = []
 
 [project.optional-dependencies]
 dev = [
@@ -33,6 +26,8 @@ members = [
   "src/mail_client_api",
   "src/gmail_client_impl",
   "src/mail_client_service",
+  "src/mail_client_service_client",
+  "src/mail_client_adapter",
 ]
 
 [tool.ruff]
@@ -47,27 +42,104 @@ ignore = [
   "S101", # Use of `assert` detected --> Asserts are good in our opinion. Tests use asserts profusely.
 ]
 [tool.ruff.lint.per-file-ignores]
-"**/test_*.py" = ["TRY300", "BLE001", "ANN401", "SLF001", "E501", "S105", "ARG001", "ARG002", "ARG005", "S106", "INP001", "PLC0415", "PLR2004", "E402", "ANN002", "ANN003", "ANN202", "TRY002", "EM101", "ERA001", "D205", "D100", "I001", "F401", "D212", "PLR0402", "W291", "PT018", "E401", "F811", "TRY003", "D200"]
-"src/mail_client_service/**/*.py" = ["D100", "D101", "D102", "D103", "D104", "D107", "ANN001", "ANN201", "E402", "A002", "ARG001", "ARG002", "BLE001", "B904", "TRY300", "TRY301", "PLC0415", "FBT001", "FBT002", "S110"]
-"tests/e2e/**/*.py" = ["D100", "ANN001", "ANN201", "PLR2004", "T201"]
-"tests/integration/**/*.py" = ["E402", "D100"]
-"tests/**/*.py" = ["D100"]
+# Test files have relaxed rules for readability and practicality
+"**/test_*.py" = [
+    "TRY300",  # Consider moving this statement to an else block - tests often have simple try/except
+    "BLE001",  # Do not catch blind exception - acceptable in test cleanup/fixtures
+    "ANN401",  # Dynamically typed expressions (Any) - tests use mocks extensively
+    "SLF001",  # Private member accessed - tests may need to access private members
+    "E501",    # Line too long - test assertions can be verbose
+    "S105",    # Possible hardcoded password - test data often includes fake credentials
+    "S106",    # Possible hardcoded password (argument default) - test fixtures use fake data
+    "ARG001",  # Unused function argument - pytest fixtures often have unused params
+    "ARG002",  # Unused method argument - test methods may not use all fixtures
+    "ARG005",  # Unused lambda argument - common in test mocking
+    "INP001",  # Implicit namespace package - tests don't need __init__.py
+    "PLC0415", # Import should be at top-level - tests may import conditionally
+    "PLR2004", # Magic value used in comparison - tests use literal values for clarity
+    "E402",    # Module level import not at top - tests may need setup before imports
+    "ANN002",  # Missing type annotation for *args - not needed in tests
+    "ANN003",  # Missing type annotation for **kwargs - not needed in tests
+    "ANN202",  # Missing return type annotation for private function - internal test helpers
+    "TRY002",  # Create your own exception - tests use built-in exceptions
+    "EM101",   # Exception must not use string literal - tests use simple messages
+    "ERA001",  # Found commented-out code - tests may have commented examples
+    "D205",    # 1 blank line required between summary and description - tests focus on code
+    "D100",    # Missing docstring in public module - test files are self-documenting
+    "I001",    # Import block is un-sorted - tests prioritize clarity over import order
+    "F401",    # Imported but unused - test fixtures imported for side effects
+    "D212",    # Multi-line docstring summary should start at first line - docstring style
+    "PLR0402", # Use from X import Y instead of import X - tests may need full module
+    "W291",    # Trailing whitespace - minor formatting in tests
+    "PT018",   # Assertion should be broken down - tests may have complex assertions
+    "E401",    # Multiple imports on one line - tests may group imports
+    "F811",    # Redefinition of unused name - test fixtures may override
+    "TRY003",  # Avoid specifying long messages outside exception class - tests use inline messages
+    "D200",    # One-line docstring should fit on one line - docstring formatting
+]
+
+# FastAPI service has relaxed documentation and type rules for endpoints
+"src/mail_client_service/**/*.py" = [
+    "D100",    # Missing docstring in public module - FastAPI modules are route collections
+    "D101",    # Missing docstring in public class - DTOs and models are self-describing
+    "D102",    # Missing docstring in public method - endpoints have docstrings
+    "D103",    # Missing docstring in public function - FastAPI decorators document endpoints
+    "D104",    # Missing docstring in public package - package name is descriptive
+    "D107",    # Missing docstring in __init__ - simple initialization
+    "ANN001",  # Missing type annotation for function argument - FastAPI uses Depends
+    "ANN201",  # Missing return type annotation - FastAPI infers from response_model
+    "E402",    # Module level import not at top - dependency on import order for FastAPI
+    "A002",    # Argument shadows Python builtin - FastAPI uses 'id' commonly
+    "ARG001",  # Unused function argument - FastAPI dependency injection
+    "ARG002",  # Unused method argument - FastAPI may not use all params
+    "BLE001",  # Do not catch blind exception - API endpoints catch all for 500 responses
+    "B904",    # Use raise from to show exception chain - API simplifies errors
+    "TRY300",  # Consider moving statement to else block - FastAPI error handling pattern
+    "TRY301",  # Abstract raise to an inner function - inline for clarity in endpoints
+    "PLC0415", # Import should be at top-level - conditional imports for mock fallback
+    "FBT001",  # Boolean positional arg in function - FastAPI common pattern
+    "FBT002",  # Boolean default positional argument - FastAPI dependency pattern
+    "S110",    # try-except-pass detected - graceful degradation in service
+]
+
+# Auto-generated client code - skip all checks
+"src/mail_client_service_client/**/*.py" = [
+    "ALL",     # Auto-generated by openapi-python-client - do not modify
+]
+
+# E2E tests can use print statements and simple types
+"tests/e2e/**/*.py" = [
+    "D100",    # Missing docstring - E2E tests are self-documenting from test names
+    "ANN001",  # Missing type annotation - E2E tests focus on integration
+    "ANN201",  # Missing return type - E2E tests don't need full annotations
+    "PLR2004", # Magic value in comparison - E2E tests use literal values
+    "T201",    # print found - E2E tests may print for debugging
+]
+
+# Integration tests may need import manipulation
+"tests/integration/**/*.py" = [
+    "E402",    # Module import not at top - integration may need setup before imports
+    "D100",    # Missing docstring - integration tests are self-documenting
+]
+
+# All tests don't need module docstrings
+"tests/**/*.py" = [
+    "D100",    # Missing docstring - test file names describe purpose
+]
 
 [tool.mypy]
 strict = true
 explicit_package_bases = true # Required for src layout
-mypy_path = ["src/mail_client_api/src", "src/gmail_client_impl/src", "src/mail_client_service/src"]
+mypy_path = ["src/mail_client_api/src", "src/gmail_client_impl/src", "src/mail_client_service/src", "src/mail_client_service_client/src", "src/mail_client_adapter/src"]
 ignore_missing_imports = false
 warn_unused_ignores = false
-exclude = ["tests/", ".*/tests/.*"]
+exclude = ["tests/", ".*/tests/.*", "src/mail_client_service_client/"]
 
 # Allow untyped imports for specific modules
 [[tool.mypy.overrides]]
 module = [
     "google.*",
     "googleapiclient.*",
-    "gmail_client_impl.*",
-    "mail_client_api.*",
 ]
 ignore_missing_imports = true
 
@@ -88,7 +160,7 @@ markers = [
 
 [tool.coverage.run]
 source = ["src"]
-omit = ["*/tests/*", "*/__main__.py", "*/generated/*"]
+omit = ["*/tests/*", "*/__main__.py", "*/generated/*", "*/mail_client_service_api_client/*"]
 
 [tool.coverage.report]
 fail_under = 85 # Justification: A high threshold ensures most code is tested.

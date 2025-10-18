@@ -2,15 +2,14 @@ from collections.abc import Iterator
 
 import mail_client_api
 from mail_client_api import message
-
-from .generated.mail_client_service_api_client.api.default import (
+from mail_client_service_client import Client as GeneratedClient
+from mail_client_service_client import MessageResponse
+from mail_client_service_client.mail_client_service_api_client.api.default import (
     delete_message_messages_message_id_delete,
     get_message_messages_message_id_get,
     get_messages_messages_get,
     mark_as_read_messages_message_id_read_put,
 )
-from .generated.mail_client_service_api_client.client import Client as GeneratedClient
-from .generated.mail_client_service_api_client.models.message_response import MessageResponse
 
 
 class ServiceMessage(message.Message):
