@@ -101,7 +101,8 @@ class TestConcreteAIClient:
         assert history == []
 
     def test_get_conversation_history_existing_user(
-        self, client: ConcreteAIClient,
+        self,
+        client: ConcreteAIClient,
     ) -> None:
         """Test getting history for a user with messages."""
         client.send_message("user123", "Hello")
@@ -117,7 +118,8 @@ class TestConcreteAIClient:
         assert history[3].role == "assistant"
 
     def test_get_conversation_history_empty_user_id(
-        self, client: ConcreteAIClient,
+        self,
+        client: ConcreteAIClient,
     ) -> None:
         """Test that empty user_id raises ValueError."""
         with pytest.raises(ValueError, match="user_id cannot be empty"):
