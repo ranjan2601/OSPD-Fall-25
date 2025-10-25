@@ -10,6 +10,7 @@ resolution-markers = [
 members = [
     "gemini-api",
     "gemini-impl",
+    "gemini-service",
     "gmail-client-impl",
     "mail-client-adapter",
     "mail-client-api",
@@ -323,6 +324,27 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
 ]
 provides-extras = ["dev"]
+
+[[package]]
+name = "gemini-service"
+version = "0.1.0"
+source = { editable = "src/gemini_service" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "gemini-api" },
+    { name = "gemini-impl" },
+    { name = "pydantic" },
+    { name = "uvicorn" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115.0" },
+    { name = "gemini-api", editable = "src/gemini_api" },
+    { name = "gemini-impl", editable = "src/gemini_impl" },
+    { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "uvicorn", specifier = ">=0.32.0" },
+]
 
 [[package]]
 name = "ghp-import"
