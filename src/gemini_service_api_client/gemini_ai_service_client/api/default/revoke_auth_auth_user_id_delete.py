@@ -25,9 +25,13 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[HTTPValidationError, RevokeAuthAuthUserIdDeleteResponseRevokeAuthAuthUserIdDelete]]:
+) -> Optional[
+    Union[HTTPValidationError, RevokeAuthAuthUserIdDeleteResponseRevokeAuthAuthUserIdDelete]
+]:
     if response.status_code == 200:
-        response_200 = RevokeAuthAuthUserIdDeleteResponseRevokeAuthAuthUserIdDelete.from_dict(response.json())
+        response_200 = RevokeAuthAuthUserIdDeleteResponseRevokeAuthAuthUserIdDelete.from_dict(
+            response.json()
+        )
 
         return response_200
 
@@ -44,7 +48,9 @@ def _parse_response(
 
 def _build_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[HTTPValidationError, RevokeAuthAuthUserIdDeleteResponseRevokeAuthAuthUserIdDelete]]:
+) -> Response[
+    Union[HTTPValidationError, RevokeAuthAuthUserIdDeleteResponseRevokeAuthAuthUserIdDelete]
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -57,7 +63,9 @@ def sync_detailed(
     user_id: str,
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Response[Union[HTTPValidationError, RevokeAuthAuthUserIdDeleteResponseRevokeAuthAuthUserIdDelete]]:
+) -> Response[
+    Union[HTTPValidationError, RevokeAuthAuthUserIdDeleteResponseRevokeAuthAuthUserIdDelete]
+]:
     """Revoke Auth
 
      Revoke OAuth credentials for a user.
@@ -88,7 +96,9 @@ def sync(
     user_id: str,
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Optional[Union[HTTPValidationError, RevokeAuthAuthUserIdDeleteResponseRevokeAuthAuthUserIdDelete]]:
+) -> Optional[
+    Union[HTTPValidationError, RevokeAuthAuthUserIdDeleteResponseRevokeAuthAuthUserIdDelete]
+]:
     """Revoke Auth
 
      Revoke OAuth credentials for a user.
@@ -114,7 +124,9 @@ async def asyncio_detailed(
     user_id: str,
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Response[Union[HTTPValidationError, RevokeAuthAuthUserIdDeleteResponseRevokeAuthAuthUserIdDelete]]:
+) -> Response[
+    Union[HTTPValidationError, RevokeAuthAuthUserIdDeleteResponseRevokeAuthAuthUserIdDelete]
+]:
     """Revoke Auth
 
      Revoke OAuth credentials for a user.
@@ -143,7 +155,9 @@ async def asyncio(
     user_id: str,
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Optional[Union[HTTPValidationError, RevokeAuthAuthUserIdDeleteResponseRevokeAuthAuthUserIdDelete]]:
+) -> Optional[
+    Union[HTTPValidationError, RevokeAuthAuthUserIdDeleteResponseRevokeAuthAuthUserIdDelete]
+]:
     """Revoke Auth
 
      Revoke OAuth credentials for a user.

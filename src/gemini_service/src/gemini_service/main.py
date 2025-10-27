@@ -1,6 +1,14 @@
+from pathlib import Path
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from .api import router
+
+# Load environment variables from .env file
+# Go up from: gemini_service/main.py -> gemini_service/ -> src/ -> src/ -> hw1/
+env_path = Path(__file__).resolve().parent.parent.parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 
 app = FastAPI(
     title="Gemini AI Service",

@@ -4,13 +4,14 @@ This module handles the OAuth 2.0 flow for authenticating users with Google,
 storing credentials securely, and managing token refresh.
 """
 
+import json
 import sqlite3
 from pathlib import Path
 from typing import Any, ClassVar
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import Flow
 
 
 class OAuthManager:
@@ -108,13 +109,19 @@ class OAuthManager:
             msg = "user_id cannot be empty"
             raise ValueError(msg)
 
-        flow = InstalledAppFlow.from_client_secrets_file(
-            self.credentials_file,
+        # Load client config from credentials file
+        with Path(self.credentials_file).open() as f:
+            client_config = json.load(f)
+
+        # Create Flow for web app OAuth
+        flow = Flow.from_client_config(
+            client_config,
             scopes=self.scopes,
+            redirect_uri="http://localhost:8000/auth/callback",
         )
 
         # Generate authorization URL
-        auth_url, _state = flow.authorization_url(  # type: ignore[attr-defined]
+        auth_url, _state = flow.authorization_url(
             access_type="offline",
             prompt="consent",
         )
@@ -142,13 +149,19 @@ class OAuthManager:
             msg = "code cannot be empty"
             raise ValueError(msg)
 
-        flow = InstalledAppFlow.from_client_secrets_file(
-            self.credentials_file,
+        # Load client config from credentials file
+        with Path(self.credentials_file).open() as f:
+            client_config = json.load(f)
+
+        # Create Flow for web app OAuth
+        flow = Flow.from_client_config(
+            client_config,
             scopes=self.scopes,
+            redirect_uri="http://localhost:8000/auth/callback",
         )
 
         # Exchange code for credentials
-        credentials = flow.fetch_token(code=code)  # type: ignore[attr-defined]
+        credentials = flow.fetch_token(code=code)
 
         # Store credentials
         self._store_credentials(user_id, credentials)
@@ -188,7 +201,7 @@ class OAuthManager:
         # Refresh token if expired
         if credentials and credentials.expired and credentials.refresh_token:
             request = Request()  # type: ignore[no-untyped-call]
-            credentials.refresh(request)  # type: ignore[attr-defined]
+            credentials.refresh(request)
             # Update stored credentials with new token
             self._store_credentials(user_id, credentials)
 

@@ -53,7 +53,7 @@ class TestAIClientAbstractMethods:
     def test_cannot_instantiate_abstract_client(self) -> None:
         """Test that AIClient cannot be instantiated directly."""
         with pytest.raises(TypeError):
-            AIClient()  # type: ignore[abstract]
+            AIClient()
 
 
 class TestMessage:

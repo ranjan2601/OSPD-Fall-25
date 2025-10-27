@@ -45,7 +45,6 @@ def test_service_root_endpoint(check_service_running) -> None:
     assert "Gemini AI Service" in data["message"]
 
 
-
 @pytest.mark.local_credentials
 def test_service_get_messages_e2e(check_service_running, check_credentials) -> None:
     """Test fetching messages through the service from real Gmail API.

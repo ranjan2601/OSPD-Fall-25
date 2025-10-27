@@ -45,7 +45,7 @@ class GeminiServiceAdapter(AIClient):
         response = self.client.send_message_chat_post(
             json_body={"user_id": user_id, "message": message},
         )
-        return response.response  # type: ignore[attr-defined]
+        return response.response
 
     def get_conversation_history(self, user_id: str) -> list[Message]:
         """Retrieve conversation history via the Gemini FastAPI service.
@@ -70,10 +70,10 @@ class GeminiServiceAdapter(AIClient):
         if hasattr(response, "messages") and response.messages:
             return [
                 Message(
-                    role=msg.role,  # type: ignore[attr-defined]
-                    content=msg.content,  # type: ignore[attr-defined]
+                    role=msg.role,
+                    content=msg.content,
                 )
-                for msg in response.messages  # type: ignore[attr-defined]
+                for msg in response.messages
             ]
         return []
 
@@ -97,4 +97,4 @@ class GeminiServiceAdapter(AIClient):
         response = self.client.clear_conversation_history_user_id_delete(
             user_id=user_id,
         )
-        return response.cleared if hasattr(response, "cleared") else True  # type: ignore[attr-defined]
+        return response.cleared if hasattr(response, "cleared") else True

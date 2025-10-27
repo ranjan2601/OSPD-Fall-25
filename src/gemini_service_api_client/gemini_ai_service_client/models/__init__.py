@@ -5,7 +5,9 @@ from .auth_callback_response import AuthCallbackResponse
 from .auth_url_response import AuthUrlResponse
 from .clear_conversation_response import ClearConversationResponse
 from .conversation_history_response import ConversationHistoryResponse
-from .health_check_health_get_response_health_check_health_get import HealthCheckHealthGetResponseHealthCheckHealthGet
+from .health_check_health_get_response_health_check_health_get import (
+    HealthCheckHealthGetResponseHealthCheckHealthGet,
+)
 from .http_validation_error import HTTPValidationError
 from .message import Message
 from .read_root_get_response_read_root_get import ReadRootGetResponseReadRootGet

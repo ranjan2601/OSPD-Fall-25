@@ -2,7 +2,9 @@
 
 import sqlite3
 from pathlib import Path
+from typing import Any
 
+import google.generativeai as genai
 from gemini_api import AIClient, Message
 
 
@@ -32,6 +34,11 @@ class GeminiClient(AIClient):
 
         self.api_key = api_key
         self.db_path = db_path
+
+        # Initialize Gemini API
+        genai.configure(api_key=api_key)  # type: ignore[attr-defined]
+        self.model: Any = genai.GenerativeModel("gemini-2.0-flash")  # type: ignore[attr-defined]
+
         self._init_db()
 
     def _init_db(self) -> None:
@@ -91,22 +98,25 @@ class GeminiClient(AIClient):
         return response
 
     def _generate_response(self, message: str) -> str:
-        """Generate a response for the message.
-
-        In production, this would call the Gemini API using:
-        `import google.generativeai as genai` and
-        `model = genai.GenerativeModel("gemini-pro")`.
-
-        For now, returns a placeholder response.
+        """Generate a response for the message using Gemini API.
 
         Args:
             message: The user's message.
 
         Returns:
-            A response string.
+            A response string from Gemini API.
+
+        Raises:
+            RuntimeError: If there's an error calling the Gemini API.
 
         """
-        return f"Response to: {message}"
+        try:
+            response = self.model.generate_content(message)
+        except Exception as e:
+            msg = f"Error calling Gemini API: {e!s}"
+            raise RuntimeError(msg) from e
+        else:
+            return response.text  # type: ignore[no-any-return]
 
     def get_conversation_history(self, user_id: str) -> list[Message]:
         """Retrieve the conversation history for a user.

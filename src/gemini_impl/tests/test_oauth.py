@@ -19,7 +19,7 @@ def mock_credentials_file() -> str:
         delete=False,
     ) as f:
         credentials = {
-            "installed": {
+            "web": {
                 "client_id": "test-client-id.apps.googleusercontent.com",
                 "client_secret": "test-secret",
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
@@ -107,10 +107,10 @@ class TestOAuthManagerGetAuthorizationUrl:
             )
 
             with patch(
-                "gemini_impl.oauth.InstalledAppFlow.from_client_secrets_file",
-            ) as mock_flow:
+                "gemini_impl.oauth.Flow.from_client_config",
+            ) as mock_flow_class:
                 mock_flow_instance = MagicMock()
-                mock_flow.return_value = mock_flow_instance
+                mock_flow_class.return_value = mock_flow_instance
                 mock_flow_instance.authorization_url.return_value = (
                     "https://accounts.google.com/o/oauth2/auth?...",
                     "state-token",
@@ -148,10 +148,10 @@ class TestOAuthManagerHandleCallback:
             )
 
             with patch(
-                "gemini_impl.oauth.InstalledAppFlow.from_client_secrets_file",
-            ) as mock_flow:
+                "gemini_impl.oauth.Flow.from_client_config",
+            ) as mock_flow_class:
                 mock_flow_instance = MagicMock()
-                mock_flow.return_value = mock_flow_instance
+                mock_flow_class.return_value = mock_flow_instance
                 mock_credentials = {
                     "access_token": "test-token",
                     "refresh_token": "test-refresh-token",
