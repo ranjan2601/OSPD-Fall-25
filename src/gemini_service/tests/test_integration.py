@@ -20,6 +20,7 @@ class TestEndToEndChatFlow:
     """Test complete chat conversation flow."""
 
     @pytest.mark.local_credentials
+    @pytest.mark.timeout(60)
     def test_complete_conversation_flow(self, client):
         """Test sending multiple messages and retrieving history."""
         user_id = "integration_user_001"
@@ -51,6 +52,7 @@ class TestEndToEndChatFlow:
         assert len(empty_history.json()["messages"]) == 0
 
     @pytest.mark.local_credentials
+    @pytest.mark.timeout(60)
     def test_multiple_users_isolation(self, client):
         """Test that conversations for different users are isolated."""
         user1 = "user_001"
@@ -199,6 +201,7 @@ class TestAPIResponseStructure:
     """Test that API responses follow correct structure."""
 
     @pytest.mark.local_credentials
+    @pytest.mark.timeout(30)
     def test_send_message_response_structure(self, client):
         """Test send message response has correct structure."""
         response = client.post(
@@ -241,6 +244,7 @@ class TestConcurrentRequests:
     """Test handling of concurrent-like scenarios."""
 
     @pytest.mark.local_credentials
+    @pytest.mark.timeout(60)
     def test_sequential_requests_same_user(self, client):
         """Test multiple sequential requests for same user work correctly."""
         user_id = "concurrent_user"
@@ -256,6 +260,7 @@ class TestConcurrentRequests:
         assert len(history["messages"]) == 10
 
     @pytest.mark.local_credentials
+    @pytest.mark.timeout(60)
     def test_interleaved_requests_multiple_users(self, client):
         """Test interleaved requests for multiple users."""
         users = ["user_a", "user_b", "user_c"]
@@ -285,6 +290,7 @@ class TestEdgeCases:
         assert response.status_code == 200
 
     @pytest.mark.local_credentials
+    @pytest.mark.timeout(30)
     def test_special_characters_in_message(self, client):
         """Test messages with special characters."""
         special_msg = "Hello! @#$%^&*() <script>alert('xss')</script> 你好 🚀"
