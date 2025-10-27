@@ -127,8 +127,8 @@ def _get_mock_client() -> AIClient:
                 return True
             return False
 
-    _mock_client_instance = MockClient()  # type: ignore[assignment]
-    return _mock_client_instance  # type: ignore[return-value]
+    _mock_client_instance = MockClient()
+    return _mock_client_instance
 
 
 def _reset_mock_client() -> None:

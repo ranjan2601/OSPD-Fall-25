@@ -125,7 +125,7 @@ class OAuthManager:
             access_type="offline",
             prompt="consent",
         )
-        return auth_url  # type: ignore[no-any-return]
+        return auth_url
 
     def handle_callback(self, user_id: str, code: str) -> Credentials:
         """Handle the OAuth callback and exchange code for credentials.
@@ -166,7 +166,7 @@ class OAuthManager:
         # Store credentials
         self._store_credentials(user_id, credentials)
 
-        return credentials  # type: ignore[no-any-return]
+        return credentials
 
     def get_credentials(self, user_id: str) -> Credentials | None:
         """Retrieve and refresh credentials for a user if needed.
@@ -190,7 +190,7 @@ class OAuthManager:
             return None
 
         # Recreate Credentials object from stored data
-        credentials = Credentials(  # type: ignore[no-untyped-call]
+        credentials = Credentials(
             token=credentials_data.get("token"),
             refresh_token=credentials_data.get("refresh_token"),
             token_uri=credentials_data.get("token_uri"),
@@ -200,7 +200,7 @@ class OAuthManager:
 
         # Refresh token if expired
         if credentials and credentials.expired and credentials.refresh_token:
-            request = Request()  # type: ignore[no-untyped-call]
+            request = Request()
             credentials.refresh(request)
             # Update stored credentials with new token
             self._store_credentials(user_id, credentials)
@@ -233,7 +233,7 @@ class OAuthManager:
     def _store_credentials(
         self,
         user_id: str,
-        credentials: Any,  # noqa: ANN401
+        credentials: Any,
     ) -> None:
         """Store credentials in the database.
 

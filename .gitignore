@@ -43,6 +43,7 @@ credentials.json
 
 # Test results
 test-results/
+coverage.xml
 
 .coverage*
 TESTING_STATUS.md

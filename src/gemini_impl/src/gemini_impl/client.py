@@ -36,8 +36,8 @@ class GeminiClient(AIClient):
         self.db_path = db_path
 
         # Initialize Gemini API
-        genai.configure(api_key=api_key)  # type: ignore[attr-defined]
-        self.model: Any = genai.GenerativeModel("gemini-2.0-flash")  # type: ignore[attr-defined]
+        genai.configure(api_key=api_key)
+        self.model: Any = genai.GenerativeModel("gemini-2.0-flash")
 
         self._init_db()
 
@@ -116,7 +116,7 @@ class GeminiClient(AIClient):
             msg = f"Error calling Gemini API: {e!s}"
             raise RuntimeError(msg) from e
         else:
-            return response.text  # type: ignore[no-any-return]
+            return response.text
 
     def get_conversation_history(self, user_id: str) -> list[Message]:
         """Retrieve the conversation history for a user.
