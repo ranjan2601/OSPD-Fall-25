@@ -6,14 +6,19 @@ Tests the complete flow from HTTP request through the service to the client.
 import pytest
 from fastapi.testclient import TestClient
 
-from gemini_service.api import _get_mock_client, _reset_mock_client
+from gemini_service.api import _get_mock_client, _reset_mock_client, get_ai_client
 from gemini_service.main import app
 
 
 @pytest.fixture
 def client():
     _reset_mock_client()
-    return TestClient(app)
+    # Override the dependency to force mock client usage for tests
+    app.dependency_overrides[get_ai_client] = _get_mock_client
+    test_client = TestClient(app)
+    yield test_client
+    # Clean up
+    app.dependency_overrides.clear()
 
 
 class TestEndToEndChatFlow:
