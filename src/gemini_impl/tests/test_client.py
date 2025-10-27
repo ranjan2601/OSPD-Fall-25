@@ -1,5 +1,6 @@
 """Tests for the Gemini client implementation."""
 
+import os
 import sqlite3
 import tempfile
 from pathlib import Path
@@ -52,9 +53,10 @@ class TestGeminiClientSendMessage:
     @pytest.fixture
     def client(self) -> GeminiClient:
         """Provide a Gemini client for testing."""
+        api_key = os.getenv("GEMINI_API_KEY", "test-key")
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = str(Path(tmpdir) / "test.db")
-            yield GeminiClient(api_key="test-key", db_path=db_path)
+            yield GeminiClient(api_key=api_key, db_path=db_path)
 
     @pytest.mark.local_credentials
     @pytest.mark.timeout(30)
@@ -92,9 +94,10 @@ class TestGeminiClientGetHistory:
     @pytest.fixture
     def client(self) -> GeminiClient:
         """Provide a Gemini client for testing."""
+        api_key = os.getenv("GEMINI_API_KEY", "test-key")
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = str(Path(tmpdir) / "test.db")
-            yield GeminiClient(api_key="test-key", db_path=db_path)
+            yield GeminiClient(api_key=api_key, db_path=db_path)
 
     def test_get_history_empty_user(self, client: GeminiClient) -> None:
         """Test getting history for a user with no messages."""
@@ -144,9 +147,10 @@ class TestGeminiClientClearConversation:
     @pytest.fixture
     def client(self) -> GeminiClient:
         """Provide a Gemini client for testing."""
+        api_key = os.getenv("GEMINI_API_KEY", "test-key")
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = str(Path(tmpdir) / "test.db")
-            yield GeminiClient(api_key="test-key", db_path=db_path)
+            yield GeminiClient(api_key=api_key, db_path=db_path)
 
     @pytest.mark.local_credentials
     @pytest.mark.timeout(30)
