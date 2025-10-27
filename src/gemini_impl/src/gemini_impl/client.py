@@ -130,8 +130,7 @@ class GeminiClient(AIClient):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT role, content FROM conversations WHERE user_id = ? "
-                "ORDER BY created_at ASC",
+                "SELECT role, content FROM conversations WHERE user_id = ? ORDER BY created_at ASC",
                 (user_id,),
             )
             rows = cursor.fetchall()

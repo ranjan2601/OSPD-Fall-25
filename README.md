@@ -1,4 +1,4 @@
-# Python Application Template: A Component-Based Mail Client
+# Python Application Template: Component-Based Microservices
 
 [![CircleCI](https://dl.circleci.com/status-badge/img/circleci/QJXxW5Kg3MhaRTXDr47FTf/bcb4e941-0b5f-479a-889b-9b98e69919c2/tree/dev.svg?style=shield)](https://dl.circleci.com/status-badge/redirect/circleci/QJXxW5Kg3MhaRTXDr47FTf/bcb4e941-0b5f-479a-889b-9b98e69919c2/tree/dev)
 [![Coverage](https://img.shields.io/badge/coverage-91%2B%25-brightgreen)](https://app.circleci.com/pipelines/circleci/QJXxW5Kg3MhaRTXDr47FTf/bcb4e941-0b5f-479a-889b-9b98e69919c2)
@@ -7,9 +7,12 @@
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://www.docker.com/)
 [![Live Demo](https://img.shields.io/badge/demo-live-success)](https://ospd-mail-client-hw1.fly.dev/docs)
 
-This repository serves as a professional-grade template for a modern Python project. It demonstrates a robust, component-based architecture by building the core components for an AI-powered email assistant that interacts with the Gmail API.
+This repository serves as a professional-grade template for modern Python microservices. It demonstrates robust, component-based architecture by implementing:
 
-The project emphasizes a strict separation of concerns, dependency injection, and a comprehensive, automated toolchain to enforce code quality and best practices.
+1. **Mail Client System** - AI-powered email assistant with Gmail API integration
+2. **Gemini AI Service** - FastAPI service providing AI chat capabilities with Google Gemini
+
+The project emphasizes strict separation of concerns, dependency injection, OAuth 2.0 authentication, and a comprehensive automated toolchain to enforce code quality and best practices.
 
 ## Quick Start
 
@@ -76,6 +79,39 @@ To connect to your Gmail account:
 3. Set `interactive=True` in `main.py` and run it
 4. Follow the command-line instructions to log in and authorize the application
 
+### Gemini AI Service
+
+The Gemini AI Service provides a FastAPI-based chat interface with Google's Gemini AI model.
+
+**Run the Service:**
+```bash
+# Start the FastAPI server
+uv run uvicorn gemini_service.main:app --reload
+
+# Access the API documentation
+# Open browser: http://localhost:8000/docs
+```
+
+**Available Endpoints:**
+- `POST /chat` - Send a message to AI and get response
+- `GET /history/{user_id}` - Retrieve conversation history
+- `DELETE /history/{user_id}` - Clear conversation history
+- `GET /auth/login` - Get OAuth authorization URL
+- `POST /auth/callback` - Handle OAuth callback
+- `DELETE /auth/{user_id}` - Revoke OAuth credentials
+
+**Authentication:**
+Set the `GEMINI_API_KEY` environment variable or use OAuth 2.0 flow. Without credentials, the service uses a mock client for testing.
+
+**Testing:**
+```bash
+# Run Gemini service tests
+uv run pytest src/gemini_service/tests/ -v
+
+# Test coverage (should be 85%+)
+uv run pytest src/gemini_api src/gemini_impl src/gemini_service --cov
+```
+
 ## Architectural Philosophy
 
 This project is built on the principle of "programming integrated over time." The architecture is designed to combat complexity and ensure the system is maintainable and evolvable.
@@ -86,24 +122,33 @@ This project is built on the principle of "programming integrated over time." Th
 
 ## Core Components
 
-The project is a `uv` workspace containing seven primary packages:
+The project is a `uv` workspace containing multiple service implementations:
 
+### Mail Client System (HW1)
 1.  **`mail_client_api`**: Defines the abstract `Client` base class (ABC). This is the contract for what actions a mail client can perform (e.g., `get_messages`).
 2.  **`gmail_client_impl`**: Provides the `GmailClient` class, a concrete implementation that uses the Google API to perform the actions defined in the `Client` abstraction.
 3.  **`mail_client_service`**: FastAPI server providing HTTP REST API for mail client operations with dependency injection.
 4.  **`mail_client_service_client`**: Auto-generated HTTP client using `openapi-python-client` for programmatic API access.
 5.  **`mail_client_adapter`**: Adapter implementing `mail_client_api.Client` that calls the HTTP service (drop-in replacement for `gmail_client_impl`).
 
+### Gemini AI Service (HW2)
+6.  **`gemini_api`**: Defines the abstract `AIClient` base class (ABC). Contract for AI chat service operations (send messages, get history, clear conversations).
+7.  **`gemini_impl`**: Concrete implementation using Google Gemini API with OAuth 2.0 authentication and SQLite-based conversation storage.
+8.  **`gemini_service`**: FastAPI server exposing AI chat endpoints with OAuth 2.0 flow (login, callback, revoke) and comprehensive error handling.
+
 ## Project Structure
 
 ```
 ta-assignment/
 ├── src/                          # Source packages (uv workspace members)
-│   ├── mail_client_api/          # Abstract mail client base class (ABC)
-│   ├── gmail_client_impl/        # Gmail-specific client implementation
-│   ├── mail_client_service/      # FastAPI HTTP REST API server
-│   ├── mail_client_service_client/ # Auto-generated HTTP client
-│   └── mail_client_adapter/      # Adapter for HTTP service client
+│   ├── mail_client_api/          # [HW1] Abstract mail client base class (ABC)
+│   ├── gmail_client_impl/        # [HW1] Gmail-specific client implementation
+│   ├── mail_client_service/      # [HW1] FastAPI HTTP REST API server
+│   ├── mail_client_service_client/ # [HW1] Auto-generated HTTP client
+│   ├── mail_client_adapter/      # [HW1] Adapter for HTTP service client
+│   ├── gemini_api/               # [HW2] Abstract AI client base class (ABC)
+│   ├── gemini_impl/              # [HW2] Gemini API implementation with OAuth 2.0
+│   └── gemini_service/           # [HW2] FastAPI AI chat service
 ├── tests/                        # Integration and E2E tests
 │   ├── integration/              # Component integration tests
 │   └── e2e/                      # End-to-end application tests

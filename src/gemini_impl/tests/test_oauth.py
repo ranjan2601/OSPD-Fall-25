@@ -85,8 +85,7 @@ class TestOAuthManagerInit:
             with sqlite3.connect(db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table' "
-                    "AND name='oauth_tokens'",
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='oauth_tokens'",
                 )
                 result = cursor.fetchone()
                 assert result is not None
