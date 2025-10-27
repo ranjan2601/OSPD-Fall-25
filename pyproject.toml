@@ -28,6 +28,8 @@ members = [
   "src/mail_client_service",
   "src/mail_client_service_client",
   "src/mail_client_adapter",
+  "src/gemini_api",
+  "src/gemini_impl",
 ]
 
 [tool.ruff]
@@ -130,7 +132,7 @@ ignore = [
 [tool.mypy]
 strict = true
 explicit_package_bases = true # Required for src layout
-mypy_path = ["src/mail_client_api/src", "src/gmail_client_impl/src", "src/mail_client_service/src", "src/mail_client_service_client/src", "src/mail_client_adapter/src"]
+mypy_path = ["src/mail_client_api/src", "src/gmail_client_impl/src", "src/mail_client_service/src", "src/mail_client_service_client/src", "src/mail_client_adapter/src", "src/gemini_api/src", "src/gemini_impl/src"]
 ignore_missing_imports = false
 warn_unused_ignores = false
 exclude = ["tests/", ".*/tests/.*", "src/mail_client_service_client/"]
@@ -140,6 +142,7 @@ exclude = ["tests/", ".*/tests/.*", "src/mail_client_service_client/"]
 module = [
     "google.*",
     "googleapiclient.*",
+    "google_auth_oauthlib.*",
 ]
 ignore_missing_imports = true
 
