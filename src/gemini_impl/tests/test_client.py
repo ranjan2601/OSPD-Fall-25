@@ -51,7 +51,7 @@ class TestGeminiClientSendMessage:
     """Test send_message method."""
 
     @pytest.fixture
-    def client(self):
+    def client(self) -> GeminiClient:
         """Provide a mocked Gemini client for testing."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = str(Path(tmpdir) / "test.db")
@@ -96,7 +96,7 @@ class TestGeminiClientGetHistory:
     """Test get_conversation_history method."""
 
     @pytest.fixture
-    def client(self):
+    def client(self) -> GeminiClient:
         """Provide a mocked Gemini client for testing."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = str(Path(tmpdir) / "test.db")
@@ -150,7 +150,7 @@ class TestGeminiClientClearConversation:
     """Test clear_conversation method."""
 
     @pytest.fixture
-    def client(self):
+    def client(self) -> GeminiClient:
         """Provide a mocked Gemini client for testing."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = str(Path(tmpdir) / "test.db")
