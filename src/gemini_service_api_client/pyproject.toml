@@ -1,26 +1,34 @@
-[tool.poetry]
-name = "gemini-ai-service-client"
+[project]
+name = "gemini-service-api-client"
 version = "0.1.0"
-description = "A client library for accessing Gemini AI Service"
-authors = []
-readme = "README.md"
-packages = [
-    { include = "gemini_ai_service_client" },
+description = "Auto-generated client library for Gemini AI Service"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.23.0,<0.29.0",
+    "attrs>=22.2.0",
+    "python-dateutil>=2.8.0",
 ]
-include = ["CHANGELOG.md", "gemini_ai_service_client/py.typed"]
-
-[tool.poetry.dependencies]
-python = "^3.9"
-httpx = ">=0.23.0,<0.29.0"
-attrs = ">=22.2.0"
-python-dateutil = "^2.8.0"
+readme = "README.md"
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["gemini_ai_service_client"]
 
 [tool.ruff]
-line-length = 120
+line-length = 100
+target-version = "py311"
+extend = "../../pyproject.toml"
 
 [tool.ruff.lint]
-select = ["F", "I", "UP"]
+# Auto-generated code - minimal checks
+select = ["ALL"]
+ignore = ["ALL"]  # Skip all checks for auto-generated code
+
+[tool.mypy]
+strict = true
+explicit_package_bases = true
+# Skip type checking for auto-generated client
+ignore_errors = true
