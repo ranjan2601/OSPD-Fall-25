@@ -17,6 +17,7 @@ dev = [
     "pymdown-extensions>=10.16.1",
     "pytest>=8.4.1",
     "pytest-cov>=6.2.1",
+    "pytest-timeout>=2.1.0",
     "ruff>=0.12.7",
     "types-requests>=2.32.4.20250611",
 ]
