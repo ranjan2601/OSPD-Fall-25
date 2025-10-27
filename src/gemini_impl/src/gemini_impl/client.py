@@ -1,6 +1,7 @@
 """Google Gemini API implementation of AIClient with conversation history storage."""
 
 import sqlite3
+import time
 from pathlib import Path
 from typing import Any
 
@@ -116,6 +117,8 @@ class GeminiClient(AIClient):
             msg = f"Error calling Gemini API: {e!s}"
             raise RuntimeError(msg) from e
         else:
+            # Add 15-second delay after API call to avoid rate limiting
+            time.sleep(15)
             return response.text  # type: ignore[no-any-return]
 
     def get_conversation_history(self, user_id: str) -> list[Message]:
