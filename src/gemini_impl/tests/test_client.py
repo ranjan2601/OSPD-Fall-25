@@ -1,9 +1,9 @@
 """Tests for the Gemini client implementation."""
 
-import os
 import sqlite3
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 from gemini_impl.client import GeminiClient
@@ -51,19 +51,24 @@ class TestGeminiClientSendMessage:
     """Test send_message method."""
 
     @pytest.fixture
-    def client(self) -> GeminiClient:
-        """Provide a Gemini client for testing."""
-        api_key = os.getenv("GEMINI_API_KEY", "test-key")
+    def client(self):
+        """Provide a mocked Gemini client for testing."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = str(Path(tmpdir) / "test.db")
-            yield GeminiClient(api_key=api_key, db_path=db_path)
+            with patch("gemini_impl.client.genai.GenerativeModel"):
+                client = GeminiClient(api_key="test-key", db_path=db_path)
+                # Mock the model's generate_content method
+                mock_response = MagicMock()
+                mock_response.text = "This is a mock response"
+                client.model.generate_content = MagicMock(return_value=mock_response)
+                yield client
 
-    @pytest.mark.local_credentials
-    @pytest.mark.timeout(30)
     def test_send_message_success(self, client: GeminiClient) -> None:
         """Test sending a message successfully."""
         response = client.send_message("user123", "Hello")
-        assert response == "Response to: Hello"
+        assert response == "This is a mock response"
+        # Verify API was called with the message
+        client.model.generate_content.assert_called_once_with("Hello")
 
     def test_send_message_empty_user_id(self, client: GeminiClient) -> None:
         """Test that empty user_id raises ValueError."""
@@ -75,8 +80,6 @@ class TestGeminiClientSendMessage:
         with pytest.raises(ValueError, match="message cannot be empty"):
             client.send_message("user123", "")
 
-    @pytest.mark.local_credentials
-    @pytest.mark.timeout(30)
     def test_send_message_stores_in_db(self, client: GeminiClient) -> None:
         """Test that sent message is stored in database."""
         client.send_message("user123", "Hello")
@@ -86,26 +89,30 @@ class TestGeminiClientSendMessage:
         assert history[0].role == "user"
         assert history[0].content == "Hello"
         assert history[1].role == "assistant"
+        assert history[1].content == "This is a mock response"
 
 
 class TestGeminiClientGetHistory:
     """Test get_conversation_history method."""
 
     @pytest.fixture
-    def client(self) -> GeminiClient:
-        """Provide a Gemini client for testing."""
-        api_key = os.getenv("GEMINI_API_KEY", "test-key")
+    def client(self):
+        """Provide a mocked Gemini client for testing."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = str(Path(tmpdir) / "test.db")
-            yield GeminiClient(api_key=api_key, db_path=db_path)
+            with patch("gemini_impl.client.genai.GenerativeModel"):
+                client = GeminiClient(api_key="test-key", db_path=db_path)
+                # Mock the model's generate_content method
+                mock_response = MagicMock()
+                mock_response.text = "Mock response"
+                client.model.generate_content = MagicMock(return_value=mock_response)
+                yield client
 
     def test_get_history_empty_user(self, client: GeminiClient) -> None:
         """Test getting history for a user with no messages."""
         history = client.get_conversation_history("newuser")
         assert history == []
 
-    @pytest.mark.local_credentials
-    @pytest.mark.timeout(30)
     def test_get_history_with_messages(self, client: GeminiClient) -> None:
         """Test getting history for a user with messages."""
         client.send_message("user123", "Hello")
@@ -125,8 +132,6 @@ class TestGeminiClientGetHistory:
         with pytest.raises(ValueError, match="user_id cannot be empty"):
             client.get_conversation_history("")
 
-    @pytest.mark.local_credentials
-    @pytest.mark.timeout(30)
     def test_get_history_isolated_per_user(self, client: GeminiClient) -> None:
         """Test that history is isolated per user."""
         client.send_message("user1", "Message 1")
@@ -145,15 +150,18 @@ class TestGeminiClientClearConversation:
     """Test clear_conversation method."""
 
     @pytest.fixture
-    def client(self) -> GeminiClient:
-        """Provide a Gemini client for testing."""
-        api_key = os.getenv("GEMINI_API_KEY", "test-key")
+    def client(self):
+        """Provide a mocked Gemini client for testing."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = str(Path(tmpdir) / "test.db")
-            yield GeminiClient(api_key=api_key, db_path=db_path)
+            with patch("gemini_impl.client.genai.GenerativeModel"):
+                client = GeminiClient(api_key="test-key", db_path=db_path)
+                # Mock the model's generate_content method
+                mock_response = MagicMock()
+                mock_response.text = "Mock response"
+                client.model.generate_content = MagicMock(return_value=mock_response)
+                yield client
 
-    @pytest.mark.local_credentials
-    @pytest.mark.timeout(30)
     def test_clear_conversation_success(self, client: GeminiClient) -> None:
         """Test clearing conversation history."""
         client.send_message("user123", "Hello")
@@ -173,8 +181,6 @@ class TestGeminiClientClearConversation:
         with pytest.raises(ValueError, match="user_id cannot be empty"):
             client.clear_conversation("")
 
-    @pytest.mark.local_credentials
-    @pytest.mark.timeout(30)
     def test_clear_does_not_affect_other_users(self, client: GeminiClient) -> None:
         """Test that clearing one user's conversation doesn't affect others."""
         client.send_message("user1", "Message 1")
