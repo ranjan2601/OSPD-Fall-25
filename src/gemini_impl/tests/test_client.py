@@ -56,6 +56,7 @@ class TestGeminiClientSendMessage:
             db_path = str(Path(tmpdir) / "test.db")
             yield GeminiClient(api_key="test-key", db_path=db_path)
 
+    @pytest.mark.local_credentials
     def test_send_message_success(self, client: GeminiClient) -> None:
         """Test sending a message successfully."""
         response = client.send_message("user123", "Hello")
@@ -71,6 +72,7 @@ class TestGeminiClientSendMessage:
         with pytest.raises(ValueError, match="message cannot be empty"):
             client.send_message("user123", "")
 
+    @pytest.mark.local_credentials
     def test_send_message_stores_in_db(self, client: GeminiClient) -> None:
         """Test that sent message is stored in database."""
         client.send_message("user123", "Hello")
@@ -97,6 +99,7 @@ class TestGeminiClientGetHistory:
         history = client.get_conversation_history("newuser")
         assert history == []
 
+    @pytest.mark.local_credentials
     def test_get_history_with_messages(self, client: GeminiClient) -> None:
         """Test getting history for a user with messages."""
         client.send_message("user123", "Hello")
@@ -116,6 +119,7 @@ class TestGeminiClientGetHistory:
         with pytest.raises(ValueError, match="user_id cannot be empty"):
             client.get_conversation_history("")
 
+    @pytest.mark.local_credentials
     def test_get_history_isolated_per_user(self, client: GeminiClient) -> None:
         """Test that history is isolated per user."""
         client.send_message("user1", "Message 1")
@@ -140,6 +144,7 @@ class TestGeminiClientClearConversation:
             db_path = str(Path(tmpdir) / "test.db")
             yield GeminiClient(api_key="test-key", db_path=db_path)
 
+    @pytest.mark.local_credentials
     def test_clear_conversation_success(self, client: GeminiClient) -> None:
         """Test clearing conversation history."""
         client.send_message("user123", "Hello")
@@ -159,6 +164,7 @@ class TestGeminiClientClearConversation:
         with pytest.raises(ValueError, match="user_id cannot be empty"):
             client.clear_conversation("")
 
+    @pytest.mark.local_credentials
     def test_clear_does_not_affect_other_users(self, client: GeminiClient) -> None:
         """Test that clearing one user's conversation doesn't affect others."""
         client.send_message("user1", "Message 1")

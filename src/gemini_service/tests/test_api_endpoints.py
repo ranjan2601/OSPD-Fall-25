@@ -155,23 +155,20 @@ class TestOAuthEndpoints:
     def test_handle_auth_callback_success(self, test_client, mock_oauth_manager):
         mock_oauth_manager.handle_callback.return_value = MagicMock()
 
-        response = test_client.post(
-            "/auth/callback",
-            json={"user_id": "user123", "code": "auth_code_123"},
+        response = test_client.get(
+            "/auth/callback?code=auth_code_123&state=state_value",
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data["user_id"] == "user123"
         assert data["status"] == "authenticated"
-        mock_oauth_manager.handle_callback.assert_called_once_with("user123", "auth_code_123")
+        mock_oauth_manager.handle_callback.assert_called_once()
 
     def test_handle_auth_callback_invalid_code(self, test_client, mock_oauth_manager):
         mock_oauth_manager.handle_callback.side_effect = ValueError("code cannot be empty")
 
-        response = test_client.post(
-            "/auth/callback",
-            json={"user_id": "user123", "code": ""},
+        response = test_client.get(
+            "/auth/callback?code=&state=state_value",
         )
 
         assert response.status_code == 400

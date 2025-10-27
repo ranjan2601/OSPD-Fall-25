@@ -100,9 +100,8 @@ class TestOAuthFlowIntegration:
         response = client.get("/auth/login?user_id=test_user")
         assert response.status_code in [200, 500]
 
-        response = client.post(
-            "/auth/callback",
-            json={"user_id": "test", "code": "fake_code"},
+        response = client.get(
+            "/auth/callback?code=fake_code&state=fake_state",
         )
         assert response.status_code in [200, 400, 500]
 
