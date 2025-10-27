@@ -41,5 +41,8 @@ credentials.json
 # Database files
 *.db
 
+# Test results
+test-results/
+
 .coverage*
 TESTING_STATUS.md
