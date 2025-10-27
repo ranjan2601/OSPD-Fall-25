@@ -38,5 +38,8 @@ token.json
 .env
 credentials.json
 
+# Database files
+*.db
+
 .coverage*
 TESTING_STATUS.md
