@@ -71,6 +71,30 @@ uv run pytest src/
 uv run pytest src/ tests/ -m "not local_credentials"
 ```
 
+### Required Credentials Setup
+
+#### 1. Google Gemini API Key
+To use the Gemini AI chat service:
+
+1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Create a new API key
+3. Set the environment variable or create a `.env` file:
+   ```bash
+   # Option 1: Set environment variable
+   export GEMINI_API_KEY=your_api_key_here
+
+   # Option 2: Create .env file in project root
+   # Add this line to .env:
+   GEMINI_API_KEY=your_api_key_here
+   ```
+4. **Note:** Without this key, the Gemini service uses a mock client for testing
+
+#### 2. Gemini Database
+The Gemini service automatically creates an SQLite database to store conversation history:
+- **Location:** `conversations.db` (created automatically in project root)
+- **Purpose:** Persists per-user chat history
+- **Note:** This file is automatically ignored by `.gitignore` and should not be committed
+
 ### Gmail Authentication
 To connect to your Gmail account:
 
