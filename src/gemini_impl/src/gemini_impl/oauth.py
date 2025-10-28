@@ -24,9 +24,11 @@ class OAuthManager:
 
     """
 
-    # Scopes needed for Gemini API and Gmail integration
+    # Scopes for Gmail integration (Gemini API uses API key, not OAuth)
+    # These scopes allow the app to read and modify user's Gmail
     SCOPES: ClassVar[list[str]] = [
-        "https://www.googleapis.com/auth/generative-language",
+        "https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/gmail.modify",
     ]
 
     def __init__(

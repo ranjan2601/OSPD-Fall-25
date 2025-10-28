@@ -21,18 +21,18 @@ from gemini_api import AIClient, Message
 from gemini_impl.client import GeminiClient
 from gemini_impl.oauth import OAuthManager
 
-# Mark all tests in this file as integration tests
-pytestmark = pytest.mark.integration
+# Mark all tests in this file as integration tests and for CI/CD
+pytestmark = [pytest.mark.integration, pytest.mark.circleci]
 
 
 @pytest.fixture
-def unique_user_id():
+def unique_user_id() -> str:
     """Generate unique user_id for test isolation."""
     return f"test_user_{uuid.uuid4().hex[:8]}"
 
 
 @pytest.fixture
-def temp_db():
+def temp_db() -> str:
     """Create a temporary database for testing."""
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
@@ -42,7 +42,7 @@ def temp_db():
 
 
 @pytest.fixture
-def mock_gemini_api_key():
+def mock_gemini_api_key() -> str:
     """Provide a mock API key for testing."""
     return "test_api_key_" + uuid.uuid4().hex[:16]
 
@@ -50,50 +50,50 @@ def mock_gemini_api_key():
 class TestGeminiClientInterfaceContract:
     """Test that GeminiClient properly implements AIClient interface."""
 
-    def test_gemini_client_implements_ai_client(self, temp_db, mock_gemini_api_key):
+    def test_gemini_client_implements_ai_client(self, temp_db, mock_gemini_api_key) -> None:
         """Verify GeminiClient implements AIClient interface."""
-        with patch("google.generativeai.configure"):
-            with patch("google.generativeai.GenerativeModel"):
-                client = GeminiClient(api_key=mock_gemini_api_key, db_path=temp_db)
-                assert isinstance(client, AIClient)
+        with patch("google.generativeai.configure"), patch("google.generativeai.GenerativeModel"):
+            client = GeminiClient(api_key=mock_gemini_api_key, db_path=temp_db)
+            assert isinstance(client, AIClient)
 
-    def test_gemini_client_has_required_methods(self, temp_db, mock_gemini_api_key):
+    def test_gemini_client_has_required_methods(self, temp_db, mock_gemini_api_key) -> None:
         """Verify all required methods exist."""
-        with patch("google.generativeai.configure"):
-            with patch("google.generativeai.GenerativeModel"):
-                client = GeminiClient(api_key=mock_gemini_api_key, db_path=temp_db)
-                assert hasattr(client, "send_message")
-                assert hasattr(client, "get_conversation_history")
-                assert hasattr(client, "clear_conversation")
+        with patch("google.generativeai.configure"), patch("google.generativeai.GenerativeModel"):
+            client = GeminiClient(api_key=mock_gemini_api_key, db_path=temp_db)
+            assert hasattr(client, "send_message")
+            assert hasattr(client, "get_conversation_history")
+            assert hasattr(client, "clear_conversation")
 
-    def test_gemini_client_method_signatures(self, temp_db, mock_gemini_api_key):
+    def test_gemini_client_method_signatures(self, temp_db, mock_gemini_api_key) -> None:
         """Check method signatures match interface."""
         import inspect
 
-        with patch("google.generativeai.configure"):
-            with patch("google.generativeai.GenerativeModel"):
-                client = GeminiClient(api_key=mock_gemini_api_key, db_path=temp_db)
+        with patch("google.generativeai.configure"), patch("google.generativeai.GenerativeModel"):
+            client = GeminiClient(api_key=mock_gemini_api_key, db_path=temp_db)
 
-                # Check send_message signature
-                sig = inspect.signature(client.send_message)
-                assert "user_id" in sig.parameters
-                assert "message" in sig.parameters
+            # Check send_message signature
+            sig = inspect.signature(client.send_message)
+            assert "user_id" in sig.parameters
+            assert "message" in sig.parameters
 
-                # Check get_conversation_history signature
-                sig = inspect.signature(client.get_conversation_history)
-                assert "user_id" in sig.parameters
+            # Check get_conversation_history signature
+            sig = inspect.signature(client.get_conversation_history)
+            assert "user_id" in sig.parameters
 
-                # Check clear_conversation signature
-                sig = inspect.signature(client.clear_conversation)
-                assert "user_id" in sig.parameters
+            # Check clear_conversation signature
+            sig = inspect.signature(client.clear_conversation)
+            assert "user_id" in sig.parameters
 
 
 class TestGeminiClientMessageHandling:
     """Test message sending and handling with mocked Gemini API."""
 
     def test_send_message_with_mocked_api(
-        self, temp_db, mock_gemini_api_key, unique_user_id
-    ):
+        self,
+        temp_db,
+        mock_gemini_api_key,
+        unique_user_id,
+    ) -> None:
         """Send message to mocked Gemini API and verify response structure."""
         with patch("google.generativeai.configure"):
             mock_model = MagicMock()
@@ -109,8 +109,11 @@ class TestGeminiClientMessageHandling:
                 mock_model.generate_content.assert_called_once_with("Hello AI")
 
     def test_message_storage_in_database(
-        self, temp_db, mock_gemini_api_key, unique_user_id
-    ):
+        self,
+        temp_db,
+        mock_gemini_api_key,
+        unique_user_id,
+    ) -> None:
         """Verify messages are stored correctly in database."""
         with patch("google.generativeai.configure"):
             mock_model = MagicMock()
@@ -138,8 +141,11 @@ class TestGeminiClientMessageHandling:
                 assert rows[1][2] == "AI response"
 
     def test_response_structure_validation(
-        self, temp_db, mock_gemini_api_key, unique_user_id
-    ):
+        self,
+        temp_db,
+        mock_gemini_api_key,
+        unique_user_id,
+    ) -> None:
         """Validate the response structure from send_message."""
         with patch("google.generativeai.configure"):
             mock_model = MagicMock()
@@ -159,8 +165,11 @@ class TestGeminiClientConversationHistory:
     """Test conversation history storage and retrieval."""
 
     def test_retrieve_conversation_history(
-        self, temp_db, mock_gemini_api_key, unique_user_id
-    ):
+        self,
+        temp_db,
+        mock_gemini_api_key,
+        unique_user_id,
+    ) -> None:
         """Store multiple messages and retrieve conversation history."""
         with patch("google.generativeai.configure"):
             mock_model = MagicMock()
@@ -185,8 +194,11 @@ class TestGeminiClientConversationHistory:
                 assert all(isinstance(msg, Message) for msg in history)
 
     def test_message_order_preservation(
-        self, temp_db, mock_gemini_api_key, unique_user_id
-    ):
+        self,
+        temp_db,
+        mock_gemini_api_key,
+        unique_user_id,
+    ) -> None:
         """Verify message order is preserved in conversation history."""
         with patch("google.generativeai.configure"):
             mock_model = MagicMock()
@@ -213,8 +225,11 @@ class TestGeminiClientConversationHistory:
                 assert history[3].content == "Response B"
 
     def test_history_content_validation(
-        self, temp_db, mock_gemini_api_key, unique_user_id
-    ):
+        self,
+        temp_db,
+        mock_gemini_api_key,
+        unique_user_id,
+    ) -> None:
         """Verify conversation history content is accurate."""
         with patch("google.generativeai.configure"):
             mock_model = MagicMock()
@@ -236,8 +251,11 @@ class TestGeminiClientClearConversation:
     """Test conversation clearing functionality."""
 
     def test_clear_conversation_for_user(
-        self, temp_db, mock_gemini_api_key, unique_user_id
-    ):
+        self,
+        temp_db,
+        mock_gemini_api_key,
+        unique_user_id,
+    ) -> None:
         """Clear conversation for user and verify history is empty."""
         with patch("google.generativeai.configure"):
             mock_model = MagicMock()
@@ -260,7 +278,7 @@ class TestGeminiClientClearConversation:
                 history = client.get_conversation_history(unique_user_id)
                 assert len(history) == 0
 
-    def test_clear_does_not_affect_other_users(self, temp_db, mock_gemini_api_key):
+    def test_clear_does_not_affect_other_users(self, temp_db, mock_gemini_api_key) -> None:
         """Ensure clearing one user's conversation doesn't affect others."""
         user1 = f"user1_{uuid.uuid4().hex[:8]}"
         user2 = f"user2_{uuid.uuid4().hex[:8]}"
@@ -291,7 +309,7 @@ class TestGeminiClientClearConversation:
 class TestGeminiClientMultiUserIsolation:
     """Test multi-user data isolation."""
 
-    def test_multiple_users_separate_histories(self, temp_db, mock_gemini_api_key):
+    def test_multiple_users_separate_histories(self, temp_db, mock_gemini_api_key) -> None:
         """Create conversations for multiple users and verify isolation."""
         users = [f"user_{i}_{uuid.uuid4().hex[:4]}" for i in range(3)]
 
@@ -312,7 +330,7 @@ class TestGeminiClientMultiUserIsolation:
                     assert len(history) == 2
                     assert history[0].content == f"Message from user {i}"
 
-    def test_concurrent_user_data_isolation(self, temp_db, mock_gemini_api_key):
+    def test_concurrent_user_data_isolation(self, temp_db, mock_gemini_api_key) -> None:
         """Verify data isolation with concurrent user access."""
         user1 = f"concurrent_user1_{uuid.uuid4().hex[:8]}"
         user2 = f"concurrent_user2_{uuid.uuid4().hex[:8]}"
@@ -343,7 +361,7 @@ class TestGeminiClientMultiUserIsolation:
 class TestGeminiDatabasePersistence:
     """Test database persistence and data survival."""
 
-    def test_data_survives_client_restart(self, temp_db, mock_gemini_api_key, unique_user_id):
+    def test_data_survives_client_restart(self, temp_db, mock_gemini_api_key, unique_user_id) -> None:
         """Verify data persists across client instances."""
         with patch("google.generativeai.configure"):
             mock_model = MagicMock()
@@ -361,57 +379,54 @@ class TestGeminiDatabasePersistence:
                 assert len(history) == 2
                 assert history[0].content == "Persistent message"
 
-    def test_database_schema_integrity(self, temp_db, mock_gemini_api_key):
+    def test_database_schema_integrity(self, temp_db, mock_gemini_api_key) -> None:
         """Verify database schema is correctly initialized."""
-        with patch("google.generativeai.configure"):
-            with patch("google.generativeai.GenerativeModel"):
-                client = GeminiClient(api_key=mock_gemini_api_key, db_path=temp_db)
+        with patch("google.generativeai.configure"), patch("google.generativeai.GenerativeModel"):
+            _ = GeminiClient(api_key=mock_gemini_api_key, db_path=temp_db)
 
-                # Check table exists
-                with sqlite3.connect(temp_db) as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        "SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'"
-                    )
-                    assert cursor.fetchone() is not None
+            # Check table exists
+            with sqlite3.connect(temp_db) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'",
+                )
+                assert cursor.fetchone() is not None
 
-                    # Check columns
-                    cursor.execute("PRAGMA table_info(conversations)")
-                    columns = {row[1] for row in cursor.fetchall()}
-                    assert "user_id" in columns
-                    assert "role" in columns
-                    assert "content" in columns
-                    assert "created_at" in columns
+                # Check columns
+                cursor.execute("PRAGMA table_info(conversations)")
+                columns = {row[1] for row in cursor.fetchall()}
+                assert "user_id" in columns
+                assert "role" in columns
+                assert "content" in columns
+                assert "created_at" in columns
 
 
 class TestGeminiErrorHandling:
     """Test error handling and edge cases."""
 
-    def test_invalid_user_id_handling(self, temp_db, mock_gemini_api_key):
+    def test_invalid_user_id_handling(self, temp_db, mock_gemini_api_key) -> None:
         """Test handling of invalid user_id."""
-        with patch("google.generativeai.configure"):
-            with patch("google.generativeai.GenerativeModel"):
-                client = GeminiClient(api_key=mock_gemini_api_key, db_path=temp_db)
+        with patch("google.generativeai.configure"), patch("google.generativeai.GenerativeModel"):
+            client = GeminiClient(api_key=mock_gemini_api_key, db_path=temp_db)
 
-                with pytest.raises(ValueError, match="user_id cannot be empty"):
-                    client.send_message("", "Message")
+            with pytest.raises(ValueError, match="user_id cannot be empty"):
+                client.send_message("", "Message")
 
-                with pytest.raises(ValueError, match="user_id cannot be empty"):
-                    client.get_conversation_history("")
+            with pytest.raises(ValueError, match="user_id cannot be empty"):
+                client.get_conversation_history("")
 
-                with pytest.raises(ValueError, match="user_id cannot be empty"):
-                    client.clear_conversation("")
+            with pytest.raises(ValueError, match="user_id cannot be empty"):
+                client.clear_conversation("")
 
-    def test_empty_message_handling(self, temp_db, mock_gemini_api_key, unique_user_id):
+    def test_empty_message_handling(self, temp_db, mock_gemini_api_key, unique_user_id) -> None:
         """Test handling of empty messages."""
-        with patch("google.generativeai.configure"):
-            with patch("google.generativeai.GenerativeModel"):
-                client = GeminiClient(api_key=mock_gemini_api_key, db_path=temp_db)
+        with patch("google.generativeai.configure"), patch("google.generativeai.GenerativeModel"):
+            client = GeminiClient(api_key=mock_gemini_api_key, db_path=temp_db)
 
-                with pytest.raises(ValueError, match="message cannot be empty"):
-                    client.send_message(unique_user_id, "")
+            with pytest.raises(ValueError, match="message cannot be empty"):
+                client.send_message(unique_user_id, "")
 
-    def test_api_error_handling(self, temp_db, mock_gemini_api_key, unique_user_id):
+    def test_api_error_handling(self, temp_db, mock_gemini_api_key, unique_user_id) -> None:
         """Test handling of API errors."""
         with patch("google.generativeai.configure"):
             mock_model = MagicMock()
@@ -428,7 +443,7 @@ class TestGeminiOAuthIntegration:
     """Test OAuth flow integration."""
 
     @pytest.fixture
-    def temp_credentials_file(self):
+    def temp_credentials_file(self) -> str:
         """Create temporary OAuth credentials file."""
         credentials = {
             "installed": {
@@ -437,11 +452,13 @@ class TestGeminiOAuthIntegration:
                 "redirect_uris": ["http://localhost:8000/auth/callback"],
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
-            }
+            },
         }
 
         with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
+            mode="w",
+            suffix=".json",
+            delete=False,
         ) as f:
             import json
 
@@ -451,20 +468,25 @@ class TestGeminiOAuthIntegration:
         yield cred_file
         Path(cred_file).unlink(missing_ok=True)
 
-    def test_oauth_manager_initialization(self, temp_credentials_file, temp_db):
+    def test_oauth_manager_initialization(self, temp_credentials_file, temp_db) -> None:
         """Test OAuth manager initialization."""
         oauth_manager = OAuthManager(
-            credentials_file=temp_credentials_file, db_path=temp_db
+            credentials_file=temp_credentials_file,
+            db_path=temp_db,
         )
         assert oauth_manager.credentials_file == temp_credentials_file
         assert oauth_manager.db_path == temp_db
 
     def test_oauth_authorization_url_generation(
-        self, temp_credentials_file, temp_db, unique_user_id
-    ):
+        self,
+        temp_credentials_file,
+        temp_db,
+        unique_user_id,
+    ) -> None:
         """Test OAuth authorization URL generation."""
         oauth_manager = OAuthManager(
-            credentials_file=temp_credentials_file, db_path=temp_db
+            credentials_file=temp_credentials_file,
+            db_path=temp_db,
         )
         auth_url = oauth_manager.get_authorization_url(unique_user_id)
 
@@ -472,11 +494,15 @@ class TestGeminiOAuthIntegration:
         assert "oauth2" in auth_url
 
     def test_oauth_credential_storage_and_retrieval(
-        self, temp_credentials_file, temp_db, unique_user_id
-    ):
+        self,
+        temp_credentials_file,
+        temp_db,
+        unique_user_id,
+    ) -> None:
         """Test OAuth credential storage and retrieval."""
         oauth_manager = OAuthManager(
-            credentials_file=temp_credentials_file, db_path=temp_db
+            credentials_file=temp_credentials_file,
+            db_path=temp_db,
         )
 
         # Store credentials
@@ -496,11 +522,15 @@ class TestGeminiOAuthIntegration:
         assert retrieved["refresh_token"] == "test_refresh_token"
 
     def test_oauth_credential_deletion(
-        self, temp_credentials_file, temp_db, unique_user_id
-    ):
+        self,
+        temp_credentials_file,
+        temp_db,
+        unique_user_id,
+    ) -> None:
         """Test OAuth credential deletion."""
         oauth_manager = OAuthManager(
-            credentials_file=temp_credentials_file, db_path=temp_db
+            credentials_file=temp_credentials_file,
+            db_path=temp_db,
         )
 
         # Store then delete
@@ -517,4 +547,3 @@ class TestGeminiOAuthIntegration:
         # Verify deleted
         retrieved = oauth_manager._get_stored_credentials(unique_user_id)
         assert retrieved is None
-

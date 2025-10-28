@@ -36,8 +36,7 @@ def check_service_running():
             pytest.skip(f"Service at {SERVICE_URL} is not responding correctly")
     except (httpx.ConnectError, httpx.TimeoutException):
         pytest.skip(
-            f"Service not running at {SERVICE_URL}. "
-            "Start with: uv run uvicorn gemini_service.main:app --reload"
+            f"Service not running at {SERVICE_URL}. Start with: uv run uvicorn gemini_service.main:app --reload",
         )
 
 
@@ -47,8 +46,7 @@ def check_gemini_api_key():
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         pytest.skip(
-            "GEMINI_API_KEY not set in environment. "
-            "Set it with: export GEMINI_API_KEY=your_api_key"
+            "GEMINI_API_KEY not set in environment. Set it with: export GEMINI_API_KEY=your_api_key",
         )
     return api_key
 
@@ -69,12 +67,17 @@ class TestGeminiCompleteChatWorkflow:
     """Test complete chat workflow with real Gemini API."""
 
     def test_gemini_complete_chat_workflow(
-        self, check_service_running, check_gemini_api_key, http_client, unique_user_id
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+        unique_user_id,
     ):
         """Test complete workflow: send message, receive AI response, verify storage."""
         # Send message to AI
         response = http_client.post(
-            "/chat", json={"user_id": unique_user_id, "message": "Hello! What is 2+2?"}
+            "/chat",
+            json={"user_id": unique_user_id, "message": "Hello! What is 2+2?"},
         )
 
         assert response.status_code == 200
@@ -101,7 +104,11 @@ class TestGeminiCompleteChatWorkflow:
         assert messages[1]["content"] == ai_response
 
     def test_ai_response_quality(
-        self, check_service_running, check_gemini_api_key, http_client, unique_user_id
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+        unique_user_id,
     ):
         """Verify AI responses are meaningful and context-aware."""
         # Send a specific question
@@ -125,7 +132,11 @@ class TestGeminiConversationHistoryPersistence:
     """Test conversation history persistence across multiple messages."""
 
     def test_conversation_history_persistence(
-        self, check_service_running, check_gemini_api_key, http_client, unique_user_id
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+        unique_user_id,
     ):
         """Send 5 messages and verify all are stored correctly."""
         messages_to_send = [
@@ -139,7 +150,8 @@ class TestGeminiConversationHistoryPersistence:
         # Send all messages
         for msg in messages_to_send:
             response = http_client.post(
-                "/chat", json={"user_id": unique_user_id, "message": msg}
+                "/chat",
+                json={"user_id": unique_user_id, "message": msg},
             )
             assert response.status_code == 200
 
@@ -159,14 +171,19 @@ class TestGeminiConversationHistoryPersistence:
             assert messages[user_msg_index + 1]["role"] == "assistant"
 
     def test_history_retrieval_accuracy(
-        self, check_service_running, check_gemini_api_key, http_client, unique_user_id
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+        unique_user_id,
     ):
         """Verify retrieved history matches sent messages exactly."""
         test_message = f"Unique test message {uuid.uuid4().hex[:8]}"
 
         # Send message
         send_response = http_client.post(
-            "/chat", json={"user_id": unique_user_id, "message": test_message}
+            "/chat",
+            json={"user_id": unique_user_id, "message": test_message},
         )
         assert send_response.status_code == 200
         ai_response = send_response.json()["response"]
@@ -183,7 +200,10 @@ class TestGeminiMultipleUsersConversation:
     """Test multiple users with separate conversation histories."""
 
     def test_multiple_users_conversation(
-        self, check_service_running, check_gemini_api_key, http_client
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
     ):
         """Verify each user's history is separate with no cross-user data leakage."""
         user_a = f"e2e_userA_{uuid.uuid4().hex[:8]}"
@@ -192,14 +212,16 @@ class TestGeminiMultipleUsersConversation:
         # User A sends 3 messages
         for i in range(3):
             response = http_client.post(
-                "/chat", json={"user_id": user_a, "message": f"User A message {i}"}
+                "/chat",
+                json={"user_id": user_a, "message": f"User A message {i}"},
             )
             assert response.status_code == 200
 
         # User B sends 2 messages
         for i in range(2):
             response = http_client.post(
-                "/chat", json={"user_id": user_b, "message": f"User B message {i}"}
+                "/chat",
+                json={"user_id": user_b, "message": f"User B message {i}"},
             )
             assert response.status_code == 200
 
@@ -214,15 +236,14 @@ class TestGeminiMultipleUsersConversation:
         assert all("User B" in msg["content"] for msg in history_b if msg["role"] == "user")
 
         # Verify no cross-contamination
-        assert not any(
-            "User B" in msg["content"] for msg in history_a if msg["role"] == "user"
-        )
-        assert not any(
-            "User A" in msg["content"] for msg in history_b if msg["role"] == "user"
-        )
+        assert not any("User B" in msg["content"] for msg in history_a if msg["role"] == "user")
+        assert not any("User A" in msg["content"] for msg in history_b if msg["role"] == "user")
 
     def test_user_isolation_stress_test(
-        self, check_service_running, check_gemini_api_key, http_client
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
     ):
         """Test isolation with multiple users sending messages simultaneously."""
         users = [f"stress_user_{i}_{uuid.uuid4().hex[:4]}" for i in range(5)]
@@ -230,7 +251,8 @@ class TestGeminiMultipleUsersConversation:
         # Send unique message for each user
         for user in users:
             response = http_client.post(
-                "/chat", json={"user_id": user, "message": f"Unique message for {user}"}
+                "/chat",
+                json={"user_id": user, "message": f"Unique message for {user}"},
             )
             assert response.status_code == 200
 
@@ -246,13 +268,18 @@ class TestGeminiClearHistoryWorkflow:
     """Test clearing conversation history."""
 
     def test_clear_history_workflow(
-        self, check_service_running, check_gemini_api_key, http_client, unique_user_id
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+        unique_user_id,
     ):
         """Send messages, clear history, and verify it's empty."""
         # Send messages
         for i in range(3):
             response = http_client.post(
-                "/chat", json={"user_id": unique_user_id, "message": f"Message {i}"}
+                "/chat",
+                json={"user_id": unique_user_id, "message": f"Message {i}"},
             )
             assert response.status_code == 200
 
@@ -271,7 +298,10 @@ class TestGeminiClearHistoryWorkflow:
         assert len(new_history) == 0
 
     def test_clear_only_affects_target_user(
-        self, check_service_running, check_gemini_api_key, http_client
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
     ):
         """Verify clearing one user doesn't affect another user."""
         user1 = f"clear_test1_{uuid.uuid4().hex[:8]}"
@@ -296,15 +326,19 @@ class TestGeminiConcurrentUsers:
     """Test concurrent user access and race conditions."""
 
     def test_concurrent_users(
-        self, check_service_running, check_gemini_api_key, http_client
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
     ):
         """Simulate 3 concurrent users sending messages."""
         users = [f"concurrent_{i}_{uuid.uuid4().hex[:4]}" for i in range(3)]
 
         def send_message(user_id):
-            """Helper function to send message."""
+            """Send a message to the chat service."""
             response = http_client.post(
-                "/chat", json={"user_id": user_id, "message": f"Message from {user_id}"}
+                "/chat",
+                json={"user_id": user_id, "message": f"Message from {user_id}"},
             )
             return response.status_code, user_id
 
@@ -324,7 +358,9 @@ class TestGeminiConcurrentUsers:
             assert user in user_messages[0]["content"]
 
     def test_concurrent_writes_no_race_condition(
-        self, check_service_running, check_gemini_api_key
+        self,
+        check_service_running,
+        check_gemini_api_key,
     ):
         """Test multiple concurrent writes to same user don't cause race conditions."""
         user_id = f"race_test_{uuid.uuid4().hex[:8]}"
@@ -341,9 +377,7 @@ class TestGeminiConcurrentUsers:
 
         # Send messages concurrently
         with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [
-                executor.submit(send_numbered_message, i) for i in range(num_messages)
-            ]
+            futures = [executor.submit(send_numbered_message, i) for i in range(num_messages)]
             results = [future.result() for future in as_completed(futures)]
 
         # All should succeed
@@ -360,7 +394,11 @@ class TestGeminiSpecialCharactersHandling:
     """Test handling of special characters and encoding."""
 
     def test_special_characters_handling(
-        self, check_service_running, check_gemini_api_key, http_client, unique_user_id
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+        unique_user_id,
     ):
         """Test messages with Unicode, emojis, and special characters."""
         special_messages = [
@@ -376,7 +414,8 @@ class TestGeminiSpecialCharactersHandling:
         for msg in special_messages:
             # Send message
             response = http_client.post(
-                "/chat", json={"user_id": unique_user_id, "message": msg}
+                "/chat",
+                json={"user_id": unique_user_id, "message": msg},
             )
             assert response.status_code == 200
 
@@ -389,14 +428,19 @@ class TestGeminiSpecialCharactersHandling:
             assert user_messages[i]["content"] == expected_msg
 
     def test_database_encoding_handling(
-        self, check_service_running, check_gemini_api_key, http_client, unique_user_id
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+        unique_user_id,
     ):
         """Verify database correctly handles various encodings."""
         emoji_message = "Testing emoji storage: 🎯🔥💯✨🚀"
 
         # Send and retrieve
         http_client.post(
-            "/chat", json={"user_id": unique_user_id, "message": emoji_message}
+            "/chat",
+            json={"user_id": unique_user_id, "message": emoji_message},
         )
         history = http_client.get(f"/history/{unique_user_id}").json()["messages"]
 
@@ -407,12 +451,14 @@ class TestGeminiLongConversationHandling:
     """Test handling of long conversations."""
 
     def test_long_conversation_handling(
-        self, check_service_running, check_gemini_api_key, http_client, unique_user_id
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+        unique_user_id,
     ):
         """Send 20+ messages and verify history retrieval performs well."""
         num_messages = 25
-
-        start_time = time.time()
 
         # Send messages
         for i in range(num_messages):
@@ -421,8 +467,6 @@ class TestGeminiLongConversationHandling:
                 json={"user_id": unique_user_id, "message": f"Message number {i}"},
             )
             assert response.status_code == 200
-
-        send_time = time.time() - start_time
 
         # Retrieve history
         retrieval_start = time.time()
@@ -436,7 +480,11 @@ class TestGeminiLongConversationHandling:
         assert retrieval_time < 5.0, f"History retrieval took {retrieval_time}s"
 
     def test_conversation_message_ordering_at_scale(
-        self, check_service_running, check_gemini_api_key, http_client, unique_user_id
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+        unique_user_id,
     ):
         """Verify message ordering is preserved in long conversations."""
         num_messages = 15
@@ -460,23 +508,32 @@ class TestGeminiErrorRecovery:
     """Test error handling and recovery."""
 
     def test_service_stability_after_error(
-        self, check_service_running, check_gemini_api_key, http_client, unique_user_id
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+        unique_user_id,
     ):
         """Verify service remains stable after errors."""
         # Send invalid request (empty message)
         invalid_response = http_client.post(
-            "/chat", json={"user_id": unique_user_id, "message": ""}
+            "/chat",
+            json={"user_id": unique_user_id, "message": ""},
         )
         assert invalid_response.status_code == 400
 
         # Send valid request - should work
         valid_response = http_client.post(
-            "/chat", json={"user_id": unique_user_id, "message": "Valid message"}
+            "/chat",
+            json={"user_id": unique_user_id, "message": "Valid message"},
         )
         assert valid_response.status_code == 200
 
     def test_graceful_error_handling(
-        self, check_service_running, check_gemini_api_key, http_client
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
     ):
         """Test graceful handling of various error conditions."""
         # Empty user_id
@@ -486,13 +543,18 @@ class TestGeminiErrorRecovery:
 
         # Empty message
         response = http_client.post(
-            "/chat", json={"user_id": "test_user", "message": ""}
+            "/chat",
+            json={"user_id": "test_user", "message": ""},
         )
         assert response.status_code == 400
         assert "message cannot be empty" in response.json()["detail"]
 
     def test_next_request_after_error(
-        self, check_service_running, check_gemini_api_key, http_client, unique_user_id
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+        unique_user_id,
     ):
         """Verify next request works correctly after an error."""
         # Trigger error
@@ -500,7 +562,8 @@ class TestGeminiErrorRecovery:
 
         # Next request should work
         response = http_client.post(
-            "/chat", json={"user_id": unique_user_id, "message": "Recovery test"}
+            "/chat",
+            json={"user_id": unique_user_id, "message": "Recovery test"},
         )
         assert response.status_code == 200
         assert "response" in response.json()
@@ -509,7 +572,7 @@ class TestGeminiErrorRecovery:
 class TestGeminiServiceHealthCheck:
     """Test service health and status endpoints."""
 
-    def test_root_endpoint(self, check_service_running, http_client):
+    def test_root_endpoint(self, check_service_running, http_client) -> None:
         """Verify root endpoint is responsive."""
         response = http_client.get("/")
         assert response.status_code == 200
@@ -517,7 +580,7 @@ class TestGeminiServiceHealthCheck:
         assert "message" in data
         assert "Gemini AI Service" in data["message"]
 
-    def test_health_endpoint(self, check_service_running, http_client):
+    def test_health_endpoint(self, check_service_running, http_client) -> None:
         """Verify health check endpoint."""
         response = http_client.get("/health")
         assert response.status_code == 200
@@ -525,7 +588,7 @@ class TestGeminiServiceHealthCheck:
         assert "status" in data
         assert data["status"] == "healthy"
 
-    def test_service_responsiveness(self, check_service_running, http_client):
+    def test_service_responsiveness(self, check_service_running, http_client) -> None:
         """Verify service responds quickly to health checks."""
         start_time = time.time()
         response = http_client.get("/health")
@@ -539,11 +602,16 @@ class TestGeminiAPIResponseStructure:
     """Test API response structure and format."""
 
     def test_chat_response_structure(
-        self, check_service_running, check_gemini_api_key, http_client, unique_user_id
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+        unique_user_id,
     ):
         """Verify /chat endpoint response structure."""
         response = http_client.post(
-            "/chat", json={"user_id": unique_user_id, "message": "Test"}
+            "/chat",
+            json={"user_id": unique_user_id, "message": "Test"},
         )
 
         assert response.status_code == 200
@@ -553,12 +621,17 @@ class TestGeminiAPIResponseStructure:
         assert len(data["response"]) > 0
 
     def test_history_response_structure(
-        self, check_service_running, check_gemini_api_key, http_client, unique_user_id
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+        unique_user_id,
     ):
         """Verify /history endpoint response structure."""
         # Send a message first
         http_client.post(
-            "/chat", json={"user_id": unique_user_id, "message": "Setup message"}
+            "/chat",
+            json={"user_id": unique_user_id, "message": "Setup message"},
         )
 
         # Get history
@@ -578,12 +651,17 @@ class TestGeminiAPIResponseStructure:
             assert msg["role"] in ["user", "assistant"]
 
     def test_clear_response_structure(
-        self, check_service_running, check_gemini_api_key, http_client, unique_user_id
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+        unique_user_id,
     ):
         """Verify /history delete endpoint response structure."""
         # Send a message first
         http_client.post(
-            "/chat", json={"user_id": unique_user_id, "message": "To be cleared"}
+            "/chat",
+            json={"user_id": unique_user_id, "message": "To be cleared"},
         )
 
         # Clear history
@@ -594,4 +672,3 @@ class TestGeminiAPIResponseStructure:
         assert "user_id" in data
         assert "success" in data
         assert isinstance(data["success"], bool)
-
