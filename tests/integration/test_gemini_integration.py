@@ -505,7 +505,7 @@ class TestGeminiOAuthIntegration:
             db_path=temp_db,
         )
 
-        # Store credentials
+        # Store credentials in memory (simulating callback)
         mock_credentials = {
             "access_token": "test_access_token",
             "refresh_token": "test_refresh_token",
@@ -513,13 +513,13 @@ class TestGeminiOAuthIntegration:
             "client_id": "test_client_id",
             "client_secret": "test_client_secret",
         }
-        oauth_manager._store_credentials(unique_user_id, mock_credentials)
+        oauth_manager._credentials_cache[unique_user_id] = mock_credentials
 
         # Retrieve credentials
-        retrieved = oauth_manager._get_stored_credentials(unique_user_id)
+        retrieved = oauth_manager.get_credentials(unique_user_id)
         assert retrieved is not None
-        assert retrieved["token"] == "test_access_token"
-        assert retrieved["refresh_token"] == "test_refresh_token"
+        assert retrieved.token == "test_access_token"
+        assert retrieved.refresh_token == "test_refresh_token"
 
     def test_oauth_credential_deletion(
         self,
@@ -539,11 +539,11 @@ class TestGeminiOAuthIntegration:
             "refresh_token": "test_refresh",
             "token_uri": "https://oauth2.googleapis.com/token",
         }
-        oauth_manager._store_credentials(unique_user_id, mock_credentials)
+        oauth_manager._credentials_cache[unique_user_id] = mock_credentials
 
         result = oauth_manager.revoke_credentials(unique_user_id)
         assert result is True
 
         # Verify deleted
-        retrieved = oauth_manager._get_stored_credentials(unique_user_id)
+        retrieved = oauth_manager.get_credentials(unique_user_id)
         assert retrieved is None
