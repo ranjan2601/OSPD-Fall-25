@@ -159,6 +159,8 @@ The project is a `uv` workspace containing multiple service implementations:
 6.  **`gemini_api`**: Defines the abstract `AIClient` base class (ABC). Contract for AI chat service operations (send messages, get history, clear conversations).
 7.  **`gemini_impl`**: Concrete implementation using Google Gemini API with OAuth 2.0 authentication and SQLite-based conversation storage.
 8.  **`gemini_service`**: FastAPI server exposing AI chat endpoints with OAuth 2.0 flow (login, callback, revoke) and comprehensive error handling.
+9.  **`gemini_service_api_client`**: Auto-generated HTTP client using `openapi-python-client` for programmatic API access to the Gemini service.
+10. **`gemini_adapter`**: Adapter implementing `gemini_api.AIClient` that calls the HTTP service (drop-in replacement for `gemini_impl`).
 
 ## Project Structure
 
@@ -172,7 +174,9 @@ ta-assignment/
 │   ├── mail_client_adapter/      # [HW1] Adapter for HTTP service client
 │   ├── gemini_api/               # [HW2] Abstract AI client base class (ABC)
 │   ├── gemini_impl/              # [HW2] Gemini API implementation with OAuth 2.0
-│   └── gemini_service/           # [HW2] FastAPI AI chat service
+│   ├── gemini_service/           # [HW2] FastAPI AI chat service
+│   ├── gemini_service_api_client/ # [HW2] Auto-generated HTTP client
+│   └── gemini_adapter/           # [HW2] Adapter for HTTP service client
 ├── tests/                        # Integration and E2E tests
 │   ├── integration/              # Component integration tests
 │   └── e2e/                      # End-to-end application tests
