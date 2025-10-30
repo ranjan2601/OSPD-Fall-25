@@ -154,8 +154,8 @@ class TestGeminiConversationHistoryPersistence:
             response = http_client.post(
                 "/chat",
                 json={"user_id": unique_user_id, "message": msg},
-            params={"authenticated_user_id": unique_user_id},
-        )
+                params={"authenticated_user_id": unique_user_id},
+            )
             assert response.status_code == 200
 
         # Retrieve history
@@ -291,7 +291,9 @@ class TestGeminiClearHistoryWorkflow:
             assert response.status_code == 200
 
         # Verify history exists
-        history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()["messages"]
+        history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()[
+            "messages"
+        ]
         assert len(history) > 0
 
         # Clear history
@@ -301,7 +303,9 @@ class TestGeminiClearHistoryWorkflow:
         assert clear_data["success"] is True
 
         # Verify history is empty
-        new_history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()["messages"]
+        new_history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()[
+            "messages"
+        ]
         assert len(new_history) == 0
 
     def test_clear_only_affects_target_user(
@@ -432,12 +436,14 @@ class TestGeminiSpecialCharactersHandling:
             response = http_client.post(
                 "/chat",
                 json={"user_id": unique_user_id, "message": msg},
-            params={"authenticated_user_id": unique_user_id},
-        )
+                params={"authenticated_user_id": unique_user_id},
+            )
             assert response.status_code == 200
 
         # Retrieve and verify all special characters preserved
-        history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()["messages"]
+        history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()[
+            "messages"
+        ]
         user_messages = [m for m in history if m["role"] == "user"]
 
         assert len(user_messages) == len(special_messages)
@@ -460,7 +466,9 @@ class TestGeminiSpecialCharactersHandling:
             json={"user_id": unique_user_id, "message": emoji_message},
             params={"authenticated_user_id": unique_user_id},
         )
-        history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()["messages"]
+        history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()[
+            "messages"
+        ]
 
         assert history[0]["content"] == emoji_message
 
@@ -488,7 +496,9 @@ class TestGeminiLongConversationHandling:
 
         # Retrieve history
         retrieval_start = time.time()
-        history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()["messages"]
+        history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()[
+            "messages"
+        ]
         retrieval_time = time.time() - retrieval_start
 
         # Verify all messages present
@@ -515,7 +525,9 @@ class TestGeminiLongConversationHandling:
             )
 
         # Verify order
-        history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()["messages"]
+        history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()[
+            "messages"
+        ]
         user_messages = [msg for msg in history if msg["role"] == "user"]
 
         for i in range(num_messages):

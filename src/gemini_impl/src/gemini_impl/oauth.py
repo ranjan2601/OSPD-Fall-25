@@ -206,4 +206,3 @@ class OAuthManager:
             del self._credentials_cache[user_id]
             return True
         return False
-
