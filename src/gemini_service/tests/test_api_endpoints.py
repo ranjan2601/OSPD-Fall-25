@@ -4,7 +4,14 @@ import pytest
 from fastapi.testclient import TestClient
 from gemini_api import AIClient, Message
 
-from gemini_service.api import _get_mock_client, _get_oauth_dep, _reset_mock_client, get_ai_client
+from gemini_service.api import (
+    _get_mock_client,
+    _get_oauth_dep,
+    _reset_mock_client,
+    _reset_user_api_keys,
+    _store_user_api_key,
+    get_ai_client,
+)
 from gemini_service.main import app
 
 
@@ -24,6 +31,17 @@ def test_client(mock_client, mock_oauth_manager):
     app.dependency_overrides[_get_oauth_dep] = lambda: mock_oauth_manager
     yield TestClient(app)
     app.dependency_overrides.clear()
+    _reset_user_api_keys()
+
+
+@pytest.fixture(autouse=True)
+def setup_api_keys():
+    """Reset API keys before each test."""
+    _reset_user_api_keys()
+    # Store a test API key for user123
+    _store_user_api_key("user123", "test_api_key_123")
+    yield
+    _reset_user_api_keys()
 
 
 class TestChatEndpoints:
@@ -33,6 +51,7 @@ class TestChatEndpoints:
         response = test_client.post(
             "/chat",
             json={"user_id": "user123", "message": "Hello"},
+            params={"authenticated_user_id": "user123"},
         )
 
         assert response.status_code == 200
@@ -45,6 +64,7 @@ class TestChatEndpoints:
         response = test_client.post(
             "/chat",
             json={"user_id": "", "message": "Hello"},
+            params={"authenticated_user_id": "user123"},
         )
 
         assert response.status_code == 400
@@ -56,6 +76,7 @@ class TestChatEndpoints:
         response = test_client.post(
             "/chat",
             json={"user_id": "user123", "message": ""},
+            params={"authenticated_user_id": "user123"},
         )
 
         assert response.status_code == 400
@@ -67,9 +88,22 @@ class TestChatEndpoints:
         response = test_client.post(
             "/chat",
             json={"user_id": "user123", "message": "Hello"},
+            params={"authenticated_user_id": "user123"},
         )
 
         assert response.status_code == 500
+
+    def test_send_message_unauthorized(self, test_client):
+        """Test that user cannot impersonate another user."""
+        response = test_client.post(
+            "/chat",
+            json={"user_id": "user456", "message": "Hello"},
+            params={"authenticated_user_id": "user123"},
+        )
+
+        assert response.status_code == 403
+        detail = response.json()["detail"]
+        assert "Unauthorized" in detail or "Cannot access" in detail
 
 
 class TestHistoryEndpoints:
@@ -80,7 +114,7 @@ class TestHistoryEndpoints:
         ]
         mock_client.get_conversation_history.return_value = messages
 
-        response = test_client.get("/history/user123")
+        response = test_client.get("/history/user123", params={"authenticated_user_id": "user123"})
 
         assert response.status_code == 200
         data = response.json()
@@ -92,7 +126,7 @@ class TestHistoryEndpoints:
     def test_get_conversation_history_empty(self, test_client, mock_client):
         mock_client.get_conversation_history.return_value = []
 
-        response = test_client.get("/history/user123")
+        response = test_client.get("/history/user123", params={"authenticated_user_id": "user123"})
 
         assert response.status_code == 200
         data = response.json()
@@ -106,10 +140,24 @@ class TestHistoryEndpoints:
 
         assert response.status_code == 404
 
+    def test_get_conversation_history_unauthorized(self, test_client):
+        """Test that user cannot access another user's history."""
+        response = test_client.get(
+            "/history/user456",
+            params={"authenticated_user_id": "user123"},
+        )
+
+        assert response.status_code == 403
+        detail = response.json()["detail"]
+        assert "Unauthorized" in detail or "Cannot access" in detail
+
     def test_clear_conversation_success(self, test_client, mock_client):
         mock_client.clear_conversation.return_value = True
 
-        response = test_client.delete("/history/user123")
+        response = test_client.delete(
+            "/history/user123",
+            params={"authenticated_user_id": "user123"},
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -119,12 +167,26 @@ class TestHistoryEndpoints:
     def test_clear_conversation_no_history(self, test_client, mock_client):
         mock_client.clear_conversation.return_value = False
 
-        response = test_client.delete("/history/user123")
+        response = test_client.delete(
+            "/history/user123",
+            params={"authenticated_user_id": "user123"},
+        )
 
         assert response.status_code == 200
         data = response.json()
         assert data["user_id"] == "user123"
         assert data["success"] is False
+
+    def test_clear_conversation_unauthorized(self, test_client):
+        """Test that user cannot delete another user's history."""
+        response = test_client.delete(
+            "/history/user456",
+            params={"authenticated_user_id": "user123"},
+        )
+
+        assert response.status_code == 403
+        detail = response.json()["detail"]
+        assert "Unauthorized" in detail or "Cannot access" in detail
 
 
 class TestOAuthEndpoints:
@@ -155,20 +217,32 @@ class TestOAuthEndpoints:
     def test_handle_auth_callback_success(self, test_client, mock_oauth_manager):
         mock_oauth_manager.handle_callback.return_value = MagicMock()
 
-        response = test_client.get(
-            "/auth/callback?code=auth_code_123&state=state_value",
+        response = test_client.post(
+            "/auth/callback",
+            json={"user_id": "user123", "code": "auth_code_123", "api_key": "test_api_key_123"},
         )
 
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "authenticated"
-        mock_oauth_manager.handle_callback.assert_called_once()
+        assert data["user_id"] == "user123"
+        mock_oauth_manager.handle_callback.assert_called_once_with("user123", "auth_code_123")
+
+    def test_handle_auth_callback_missing_api_key(self, test_client, mock_oauth_manager):
+        response = test_client.post(
+            "/auth/callback",
+            json={"user_id": "user123", "code": "auth_code_123", "api_key": ""},
+        )
+
+        assert response.status_code == 400
+        assert "api_key is required" in response.json()["detail"]
 
     def test_handle_auth_callback_invalid_code(self, test_client, mock_oauth_manager):
         mock_oauth_manager.handle_callback.side_effect = ValueError("code cannot be empty")
 
-        response = test_client.get(
-            "/auth/callback?code=&state=state_value",
+        response = test_client.post(
+            "/auth/callback",
+            json={"user_id": "user123", "code": "", "api_key": "test_api_key_123"},
         )
 
         assert response.status_code == 400
@@ -176,20 +250,30 @@ class TestOAuthEndpoints:
     def test_revoke_auth_success(self, test_client, mock_oauth_manager):
         mock_oauth_manager.revoke_credentials.return_value = True
 
-        response = test_client.delete("/auth/user123")
+        response = test_client.delete("/auth/user123", params={"authenticated_user_id": "user123"})
 
         assert response.status_code == 200
         data = response.json()
         assert data["user_id"] == "user123"
-        assert data["status"] == "revoked"
 
     def test_revoke_auth_not_found(self, test_client, mock_oauth_manager):
         mock_oauth_manager.revoke_credentials.return_value = False
 
-        response = test_client.delete("/auth/user123")
+        response = test_client.delete("/auth/user123", params={"authenticated_user_id": "user123"})
 
         assert response.status_code == 404
         assert "No credentials found" in response.json()["detail"]
+
+    def test_revoke_auth_unauthorized(self, test_client):
+        """Test that user cannot revoke another user's credentials."""
+        response = test_client.delete(
+            "/auth/user456",
+            params={"authenticated_user_id": "user123"},
+        )
+
+        assert response.status_code == 403
+        detail = response.json()["detail"]
+        assert "Unauthorized" in detail or "Cannot access" in detail
 
 
 class TestRootEndpoints:

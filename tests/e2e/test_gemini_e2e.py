@@ -78,6 +78,7 @@ class TestGeminiCompleteChatWorkflow:
         response = http_client.post(
             "/chat",
             json={"user_id": unique_user_id, "message": "Hello! What is 2+2?"},
+            params={"authenticated_user_id": unique_user_id},
         )
 
         assert response.status_code == 200
@@ -90,7 +91,7 @@ class TestGeminiCompleteChatWorkflow:
         assert "Mock response" not in ai_response  # Ensure not using mock client
 
         # Verify message was stored in database by retrieving history
-        history_response = http_client.get(f"/history/{unique_user_id}")
+        history_response = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id})
         assert history_response.status_code == 200
         history_data = history_response.json()
 
@@ -118,6 +119,7 @@ class TestGeminiCompleteChatWorkflow:
                 "user_id": unique_user_id,
                 "message": "What is the capital of France?",
             },
+            params={"authenticated_user_id": unique_user_id},
         )
 
         assert response.status_code == 200
@@ -152,11 +154,12 @@ class TestGeminiConversationHistoryPersistence:
             response = http_client.post(
                 "/chat",
                 json={"user_id": unique_user_id, "message": msg},
-            )
+            params={"authenticated_user_id": unique_user_id},
+        )
             assert response.status_code == 200
 
         # Retrieve history
-        history_response = http_client.get(f"/history/{unique_user_id}")
+        history_response = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id})
         assert history_response.status_code == 200
         history_data = history_response.json()
 
@@ -184,12 +187,13 @@ class TestGeminiConversationHistoryPersistence:
         send_response = http_client.post(
             "/chat",
             json={"user_id": unique_user_id, "message": test_message},
+            params={"authenticated_user_id": unique_user_id},
         )
         assert send_response.status_code == 200
         ai_response = send_response.json()["response"]
 
         # Retrieve and verify
-        history_response = http_client.get(f"/history/{unique_user_id}")
+        history_response = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id})
         messages = history_response.json()["messages"]
 
         assert messages[0]["content"] == test_message
@@ -214,6 +218,7 @@ class TestGeminiMultipleUsersConversation:
             response = http_client.post(
                 "/chat",
                 json={"user_id": user_a, "message": f"User A message {i}"},
+                params={"authenticated_user_id": user_a},
             )
             assert response.status_code == 200
 
@@ -222,16 +227,17 @@ class TestGeminiMultipleUsersConversation:
             response = http_client.post(
                 "/chat",
                 json={"user_id": user_b, "message": f"User B message {i}"},
+                params={"authenticated_user_id": user_b},
             )
             assert response.status_code == 200
 
         # Verify User A's history
-        history_a = http_client.get(f"/history/{user_a}").json()["messages"]
+        history_a = http_client.get(f"/history/{user_a}", params={"authenticated_user_id": user_a}).json()["messages"]
         assert len(history_a) == 6  # 3 user + 3 assistant
         assert all("User A" in msg["content"] for msg in history_a if msg["role"] == "user")
 
         # Verify User B's history
-        history_b = http_client.get(f"/history/{user_b}").json()["messages"]
+        history_b = http_client.get(f"/history/{user_b}", params={"authenticated_user_id": user_b}).json()["messages"]
         assert len(history_b) == 4  # 2 user + 2 assistant
         assert all("User B" in msg["content"] for msg in history_b if msg["role"] == "user")
 
@@ -253,12 +259,13 @@ class TestGeminiMultipleUsersConversation:
             response = http_client.post(
                 "/chat",
                 json={"user_id": user, "message": f"Unique message for {user}"},
+                params={"authenticated_user_id": user},
             )
             assert response.status_code == 200
 
         # Verify each user has exactly their own message
         for user in users:
-            history = http_client.get(f"/history/{user}").json()["messages"]
+            history = http_client.get(f"/history/{user}", params={"authenticated_user_id": user}).json()["messages"]
             user_messages = [msg for msg in history if msg["role"] == "user"]
             assert len(user_messages) == 1
             assert f"Unique message for {user}" in user_messages[0]["content"]
@@ -284,17 +291,17 @@ class TestGeminiClearHistoryWorkflow:
             assert response.status_code == 200
 
         # Verify history exists
-        history = http_client.get(f"/history/{unique_user_id}").json()["messages"]
+        history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()["messages"]
         assert len(history) > 0
 
         # Clear history
-        clear_response = http_client.delete(f"/history/{unique_user_id}")
+        clear_response = http_client.delete(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id})
         assert clear_response.status_code == 200
         clear_data = clear_response.json()
         assert clear_data["success"] is True
 
         # Verify history is empty
-        new_history = http_client.get(f"/history/{unique_user_id}").json()["messages"]
+        new_history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()["messages"]
         assert len(new_history) == 0
 
     def test_clear_only_affects_target_user(
@@ -308,15 +315,23 @@ class TestGeminiClearHistoryWorkflow:
         user2 = f"clear_test2_{uuid.uuid4().hex[:8]}"
 
         # Both users send messages
-        http_client.post("/chat", json={"user_id": user1, "message": "User 1 message"})
-        http_client.post("/chat", json={"user_id": user2, "message": "User 2 message"})
+        http_client.post(
+            "/chat",
+            json={"user_id": user1, "message": "User 1 message"},
+            params={"authenticated_user_id": user1},
+        )
+        http_client.post(
+            "/chat",
+            json={"user_id": user2, "message": "User 2 message"},
+            params={"authenticated_user_id": user2},
+        )
 
         # Clear user1's history
-        http_client.delete(f"/history/{user1}")
+        http_client.delete(f"/history/{user1}", params={"authenticated_user_id": user1})
 
         # Verify user1's history is empty, user2's is not
-        history1 = http_client.get(f"/history/{user1}").json()["messages"]
-        history2 = http_client.get(f"/history/{user2}").json()["messages"]
+        history1 = http_client.get(f"/history/{user1}", params={"authenticated_user_id": user1}).json()["messages"]
+        history2 = http_client.get(f"/history/{user2}", params={"authenticated_user_id": user2}).json()["messages"]
 
         assert len(history1) == 0
         assert len(history2) > 0
@@ -339,6 +354,7 @@ class TestGeminiConcurrentUsers:
             response = http_client.post(
                 "/chat",
                 json={"user_id": user_id, "message": f"Message from {user_id}"},
+                params={"authenticated_user_id": user_id},
             )
             return response.status_code, user_id
 
@@ -352,7 +368,7 @@ class TestGeminiConcurrentUsers:
 
         # Verify data integrity - each user has their message
         for user in users:
-            history = http_client.get(f"/history/{user}").json()["messages"]
+            history = http_client.get(f"/history/{user}", params={"authenticated_user_id": user}).json()["messages"]
             user_messages = [msg for msg in history if msg["role"] == "user"]
             assert len(user_messages) == 1
             assert user in user_messages[0]["content"]
@@ -416,11 +432,12 @@ class TestGeminiSpecialCharactersHandling:
             response = http_client.post(
                 "/chat",
                 json={"user_id": unique_user_id, "message": msg},
-            )
+            params={"authenticated_user_id": unique_user_id},
+        )
             assert response.status_code == 200
 
         # Retrieve and verify all special characters preserved
-        history = http_client.get(f"/history/{unique_user_id}").json()["messages"]
+        history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()["messages"]
         user_messages = [m for m in history if m["role"] == "user"]
 
         assert len(user_messages) == len(special_messages)
@@ -441,8 +458,9 @@ class TestGeminiSpecialCharactersHandling:
         http_client.post(
             "/chat",
             json={"user_id": unique_user_id, "message": emoji_message},
+            params={"authenticated_user_id": unique_user_id},
         )
-        history = http_client.get(f"/history/{unique_user_id}").json()["messages"]
+        history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()["messages"]
 
         assert history[0]["content"] == emoji_message
 
@@ -470,7 +488,7 @@ class TestGeminiLongConversationHandling:
 
         # Retrieve history
         retrieval_start = time.time()
-        history = http_client.get(f"/history/{unique_user_id}").json()["messages"]
+        history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()["messages"]
         retrieval_time = time.time() - retrieval_start
 
         # Verify all messages present
@@ -497,7 +515,7 @@ class TestGeminiLongConversationHandling:
             )
 
         # Verify order
-        history = http_client.get(f"/history/{unique_user_id}").json()["messages"]
+        history = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id}).json()["messages"]
         user_messages = [msg for msg in history if msg["role"] == "user"]
 
         for i in range(num_messages):
@@ -519,6 +537,7 @@ class TestGeminiErrorRecovery:
         invalid_response = http_client.post(
             "/chat",
             json={"user_id": unique_user_id, "message": ""},
+            params={"authenticated_user_id": unique_user_id},
         )
         assert invalid_response.status_code == 400
 
@@ -526,6 +545,7 @@ class TestGeminiErrorRecovery:
         valid_response = http_client.post(
             "/chat",
             json={"user_id": unique_user_id, "message": "Valid message"},
+            params={"authenticated_user_id": unique_user_id},
         )
         assert valid_response.status_code == 200
 
@@ -536,8 +556,14 @@ class TestGeminiErrorRecovery:
         http_client,
     ):
         """Test graceful handling of various error conditions."""
+        test_user = f"error_test_{uuid.uuid4().hex[:8]}"
+
         # Empty user_id
-        response = http_client.post("/chat", json={"user_id": "", "message": "Hello"})
+        response = http_client.post(
+            "/chat",
+            json={"user_id": "", "message": "Hello"},
+            params={"authenticated_user_id": test_user},
+        )
         assert response.status_code == 400
         assert "user_id cannot be empty" in response.json()["detail"]
 
@@ -545,6 +571,7 @@ class TestGeminiErrorRecovery:
         response = http_client.post(
             "/chat",
             json={"user_id": "test_user", "message": ""},
+            params={"authenticated_user_id": "test_user"},
         )
         assert response.status_code == 400
         assert "message cannot be empty" in response.json()["detail"]
@@ -558,12 +585,17 @@ class TestGeminiErrorRecovery:
     ):
         """Verify next request works correctly after an error."""
         # Trigger error
-        http_client.post("/chat", json={"user_id": "", "message": "Test"})
+        http_client.post(
+            "/chat",
+            json={"user_id": "", "message": "Test"},
+            params={"authenticated_user_id": unique_user_id},
+        )
 
         # Next request should work
         response = http_client.post(
             "/chat",
             json={"user_id": unique_user_id, "message": "Recovery test"},
+            params={"authenticated_user_id": unique_user_id},
         )
         assert response.status_code == 200
         assert "response" in response.json()
@@ -612,6 +644,7 @@ class TestGeminiAPIResponseStructure:
         response = http_client.post(
             "/chat",
             json={"user_id": unique_user_id, "message": "Test"},
+            params={"authenticated_user_id": unique_user_id},
         )
 
         assert response.status_code == 200
@@ -632,10 +665,11 @@ class TestGeminiAPIResponseStructure:
         http_client.post(
             "/chat",
             json={"user_id": unique_user_id, "message": "Setup message"},
+            params={"authenticated_user_id": unique_user_id},
         )
 
         # Get history
-        response = http_client.get(f"/history/{unique_user_id}")
+        response = http_client.get(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id})
 
         assert response.status_code == 200
         data = response.json()
@@ -662,13 +696,109 @@ class TestGeminiAPIResponseStructure:
         http_client.post(
             "/chat",
             json={"user_id": unique_user_id, "message": "To be cleared"},
+            params={"authenticated_user_id": unique_user_id},
         )
 
         # Clear history
-        response = http_client.delete(f"/history/{unique_user_id}")
+        response = http_client.delete(f"/history/{unique_user_id}", params={"authenticated_user_id": unique_user_id})
 
         assert response.status_code == 200
         data = response.json()
         assert "user_id" in data
         assert "success" in data
         assert isinstance(data["success"], bool)
+
+
+class TestGeminiPerUserAuthorizationEnforcement:
+    """Test per-user API key authorization enforcement."""
+
+    def test_user_cannot_access_other_users_chat(
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+    ):
+        """Verify User A cannot send chat message as User B."""
+        user_a = f"auth_user_a_{uuid.uuid4().hex[:8]}"
+        user_b = f"auth_user_b_{uuid.uuid4().hex[:8]}"
+
+        # User A tries to send message as User B (impersonation attempt)
+        response = http_client.post(
+            "/chat",
+            json={"user_id": user_b, "message": "Malicious message"},
+            params={"authenticated_user_id": user_a},
+        )
+
+        # Should be forbidden - User A cannot act as User B
+        assert response.status_code == 403
+        assert "Unauthorized" in response.json()["detail"] or "Cannot access" in response.json()["detail"]
+
+    def test_user_cannot_access_other_users_history(
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+    ):
+        """Verify User A cannot retrieve User B's conversation history."""
+        user_a = f"auth_user_a_{uuid.uuid4().hex[:8]}"
+        user_b = f"auth_user_b_{uuid.uuid4().hex[:8]}"
+
+        # User A tries to access User B's history
+        response = http_client.get(
+            f"/history/{user_b}",
+            params={"authenticated_user_id": user_a},
+        )
+
+        # Should be forbidden
+        assert response.status_code == 403
+        assert "Unauthorized" in response.json()["detail"] or "Cannot access" in response.json()["detail"]
+
+    def test_user_cannot_delete_other_users_history(
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+    ):
+        """Verify User A cannot delete User B's conversation history."""
+        user_a = f"auth_user_a_{uuid.uuid4().hex[:8]}"
+        user_b = f"auth_user_b_{uuid.uuid4().hex[:8]}"
+
+        # User A tries to delete User B's history
+        response = http_client.delete(
+            f"/history/{user_b}",
+            params={"authenticated_user_id": user_a},
+        )
+
+        # Should be forbidden
+        assert response.status_code == 403
+        assert "Unauthorized" in response.json()["detail"] or "Cannot access" in response.json()["detail"]
+
+    def test_user_can_access_own_resources(
+        self,
+        check_service_running,
+        check_gemini_api_key,
+        http_client,
+    ):
+        """Verify user can access their own resources when authenticated_user_id matches."""
+        user = f"auth_own_user_{uuid.uuid4().hex[:8]}"
+
+        # Send message to own resource
+        response = http_client.post(
+            "/chat",
+            json={"user_id": user, "message": "My own message"},
+            params={"authenticated_user_id": user},
+        )
+
+        # Should succeed
+        assert response.status_code == 200
+        assert "response" in response.json()
+
+        # Verify can retrieve own history
+        history_response = http_client.get(
+            f"/history/{user}",
+            params={"authenticated_user_id": user},
+        )
+
+        # Should succeed
+        assert history_response.status_code == 200
+        assert "messages" in history_response.json()

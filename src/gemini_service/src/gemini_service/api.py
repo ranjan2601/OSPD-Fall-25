@@ -40,6 +40,7 @@ class AuthUrlResponse(BaseModel):
 class AuthCallbackRequest(BaseModel):
     user_id: str
     code: str
+    api_key: str
 
 
 class AuthCallbackResponse(BaseModel):
@@ -78,6 +79,9 @@ def get_oauth_manager() -> OAuthManager:
 
 
 _mock_client_instance: AIClient | None = None
+
+# Per-user API key storage (in-memory)
+_user_api_keys: dict[str, str] = {}
 
 
 def _get_mock_client() -> AIClient:
@@ -137,6 +141,68 @@ def _reset_mock_client() -> None:
     _mock_client_instance = None
 
 
+def _store_user_api_key(user_id: str, api_key: str) -> None:
+    """Store API key for a specific user."""
+    _user_api_keys[user_id] = api_key
+
+
+def _get_user_api_key(user_id: str) -> str | None:
+    """Retrieve API key for a specific user."""
+    return _user_api_keys.get(user_id)
+
+
+def _raise_unauthorized() -> None:
+    """Raise unauthorized exception."""
+    msg = "Unauthorized: Cannot access other user's resources"
+    raise HTTPException(status_code=403, detail=msg)
+
+
+def _raise_missing_api_key() -> None:
+    """Raise exception for missing API key."""
+    msg = "API key not configured for user. Please authenticate and provide API key first."
+    raise HTTPException(status_code=400, detail=msg)
+
+
+def _raise_missing_parameter(param: str) -> None:
+    """Raise exception for missing required parameter."""
+    msg = f"{param} is required"
+    raise HTTPException(status_code=400, detail=msg)
+
+
+def _verify_user_authorization(authenticated_user_id: str, requested_user_id: str) -> None:
+    """Verify that authenticated user can access requested user's resources.
+
+    Args:
+        authenticated_user_id: The user who is currently authenticated
+        requested_user_id: The user whose resources are being accessed
+
+    Raises:
+        HTTPException: If user is not authorized to access the resource
+    """
+    if authenticated_user_id != requested_user_id:
+        _raise_unauthorized()
+
+
+def _revoke_user_api_key(user_id: str) -> bool:
+    """Revoke API key for a user.
+
+    Args:
+        user_id: User ID whose API key should be revoked
+
+    Returns:
+        True if key was revoked, False if no key existed
+    """
+    if user_id in _user_api_keys:
+        del _user_api_keys[user_id]
+        return True
+    return False
+
+
+def _reset_user_api_keys() -> None:
+    """Reset all user API keys (for testing)."""
+    _user_api_keys.clear()
+
+
 ClientDep = Annotated[AIClient, Depends(get_ai_client)]
 
 
@@ -149,11 +215,39 @@ OAuthDep = Annotated[OAuthManager, Depends(_get_oauth_dep)]
 
 
 @router.post("/chat", response_model=SendMessageResponse)
-async def send_message(request: SendMessageRequest, client: ClientDep) -> SendMessageResponse:
-    """Send a message to the AI and get a response."""
+async def send_message(
+    request: SendMessageRequest,
+    authenticated_user_id: str = Query(..., description="Authenticated user ID from OAuth"),
+) -> SendMessageResponse:
+    """Send a message to the AI and get a response.
+
+    Args:
+        request: The message request with user_id and message
+        authenticated_user_id: The user who is currently authenticated (from OAuth)
+
+    Returns:
+        SendMessageResponse with AI response
+
+    Raises:
+        HTTPException: If user is not authenticated or not authorized
+    """
     try:
+        # Verify user is accessing their own resources
+        _verify_user_authorization(authenticated_user_id, request.user_id)
+
+        # Get user's API key
+        api_key = _get_user_api_key(request.user_id)
+        if not api_key:
+            _raise_missing_api_key()
+
+        # Create client with user's API key
+        db_path = f"conversations_{request.user_id}.db"
+        client = GeminiClient(api_key=api_key, db_path=db_path)
+
         response = client.send_message(request.user_id, request.message)
         return SendMessageResponse(response=response)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -164,12 +258,36 @@ async def send_message(request: SendMessageRequest, client: ClientDep) -> SendMe
 @router.get("/history/{user_id}", response_model=ConversationHistoryResponse)
 async def get_conversation_history(
     user_id: str,
-    client: ClientDep,
+    authenticated_user_id: str = Query(..., description="Authenticated user ID from OAuth"),
 ) -> ConversationHistoryResponse:
-    """Retrieve conversation history for a user."""
+    """Retrieve conversation history for a user.
+
+    Args:
+        user_id: The user whose history to retrieve
+        authenticated_user_id: The user who is currently authenticated (from OAuth)
+
+    Returns:
+        ConversationHistoryResponse with message history
+
+    Raises:
+        HTTPException: If user is not authorized to access this history
+    """
     try:
+        # Verify user is accessing their own history
+        _verify_user_authorization(authenticated_user_id, user_id)
+
+        # Get user's API key to create client
+        api_key = _get_user_api_key(user_id)
+        if not api_key:
+            _raise_missing_api_key()
+
+        db_path = f"conversations_{user_id}.db"
+        client = GeminiClient(api_key=api_key, db_path=db_path)
+
         messages = client.get_conversation_history(user_id)
         return ConversationHistoryResponse(user_id=user_id, messages=messages)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -180,12 +298,36 @@ async def get_conversation_history(
 @router.delete("/history/{user_id}", response_model=ClearConversationResponse)
 async def clear_conversation(
     user_id: str,
-    client: ClientDep,
+    authenticated_user_id: str = Query(..., description="Authenticated user ID from OAuth"),
 ) -> ClearConversationResponse:
-    """Clear conversation history for a user."""
+    """Clear conversation history for a user.
+
+    Args:
+        user_id: The user whose history to clear
+        authenticated_user_id: The user who is currently authenticated (from OAuth)
+
+    Returns:
+        ClearConversationResponse with success status
+
+    Raises:
+        HTTPException: If user is not authorized to clear this history
+    """
     try:
+        # Verify user is clearing their own history
+        _verify_user_authorization(authenticated_user_id, user_id)
+
+        # Get user's API key to create client
+        api_key = _get_user_api_key(user_id)
+        if not api_key:
+            _raise_missing_api_key()
+
+        db_path = f"conversations_{user_id}.db"
+        client = GeminiClient(api_key=api_key, db_path=db_path)
+
         success = client.clear_conversation(user_id)
         return ClearConversationResponse(user_id=user_id, success=success)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -211,28 +353,147 @@ async def get_auth_url(
         raise HTTPException(status_code=500, detail=f"Error generating auth URL: {e!s}") from e
 
 
-@router.get("/auth/callback", response_model=AuthCallbackResponse)
-async def handle_auth_callback(
+@router.get("/auth/callback")
+async def handle_auth_callback_get(
     oauth_manager: OAuthDep,
+    user_id: str = Query(..., description="User ID from auth/login request"),
     code: str = Query(..., description="Authorization code from Google"),
-    state: str = Query(..., description="State parameter from Google"),
-) -> AuthCallbackResponse:
-    """Handle OAuth callback and store user credentials.
+    state: str = Query(None, description="State parameter from Google"),
+) -> dict[str, str]:
+    """Handle OAuth callback redirect from Google.
 
-    This endpoint receives the authorization code and state from Google's OAuth redirect.
-    The user_id is extracted from the state parameter or stored session.
+    This is the GET endpoint that Google redirects to after user authentication.
+    It processes the authorization code and stores OAuth credentials.
+    User must then provide their API key in a separate request.
+
+    Args:
+        oauth_manager: OAuth manager dependency
+        user_id: User ID from the original auth/login request
+        code: Authorization code from Google
+        state: State parameter from Google (optional)
+
+    Returns:
+        Success message with next steps
+
+    Raises:
+        HTTPException: If authentication fails or parameters are invalid
     """
     try:
-        # For now, we'll use a default user_id since the code is user-specific
-        # In a real app, you'd store the user_id in the state parameter
-        user_id = "authenticated_user"
+        if not user_id:
+            _raise_missing_parameter("user_id")
+        if not code:
+            _raise_missing_parameter("code")
+
+        # Handle OAuth callback and store OAuth credentials
         oauth_manager.handle_callback(user_id, code)
-        return AuthCallbackResponse(user_id=user_id, status="authenticated")
+
+        logger.info("User %s OAuth authenticated successfully", user_id)
+        return {
+            "status": "oauth_authenticated",
+            "user_id": user_id,
+            "message": "OAuth authentication successful. Now provide your Gemini API key.",
+            "next_step": "POST /auth/api-key with your Gemini API key",
+        }
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.exception("Error handling auth callback")
         raise HTTPException(status_code=500, detail=f"Error during authentication: {e!s}") from e
+
+
+@router.post("/auth/callback", response_model=AuthCallbackResponse)
+async def handle_auth_callback_post(
+    oauth_manager: OAuthDep,
+    request: AuthCallbackRequest,
+) -> AuthCallbackResponse:
+    """Handle OAuth callback with API key (POST endpoint).
+
+    This endpoint receives the authorization code, user_id, and API key from the client.
+    The user_id is used to associate the API key with the authenticated user,
+    ensuring only that user can use the key.
+
+    Args:
+        oauth_manager: OAuth manager dependency
+        request: AuthCallbackRequest containing user_id, code, and api_key
+
+    Returns:
+        AuthCallbackResponse with user_id and authentication status
+
+    Raises:
+        HTTPException: If authentication fails or parameters are invalid
+    """
+    try:
+        user_id = request.user_id
+        code = request.code
+        api_key = request.api_key
+
+        # Validate inputs
+        if not user_id:
+            _raise_missing_parameter("user_id")
+        if not code:
+            _raise_missing_parameter("code")
+        if not api_key:
+            _raise_missing_parameter("api_key")
+
+        # Handle OAuth callback and store OAuth credentials
+        oauth_manager.handle_callback(user_id, code)
+
+        # Store user's API key (isolated per user)
+        _store_user_api_key(user_id, api_key)
+
+        logger.info("User %s authenticated successfully with API key stored", user_id)
+        return AuthCallbackResponse(user_id=user_id, status="authenticated")
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        logger.exception("Error handling auth callback")
+        raise HTTPException(status_code=500, detail=f"Error during authentication: {e!s}") from e
+
+
+@router.post("/auth/api-key")
+async def store_api_key(
+    user_id: str = Query(..., description="User ID"),
+    api_key: str = Query(..., description="Gemini API key"),
+) -> dict[str, str]:
+    """Store API key for an authenticated user.
+
+    After OAuth authentication, user provides their Gemini API key.
+    This key is stored per-user and required to use the chat service.
+
+    Args:
+        user_id: The authenticated user ID
+        api_key: The Gemini API key to store
+
+    Returns:
+        Success message
+
+    Raises:
+        HTTPException: If parameters are invalid
+    """
+    try:
+        if not user_id:
+            _raise_missing_parameter("user_id")
+        if not api_key:
+            _raise_missing_parameter("api_key")
+
+        # Store user's API key (isolated per user)
+        _store_user_api_key(user_id, api_key)
+
+        logger.info("API key stored for user %s", user_id)
+        return {
+            "status": "api_key_stored",
+            "user_id": user_id,
+            "message": "API key stored successfully. You can now use the chat service.",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error storing API key")
+        raise HTTPException(status_code=500, detail=f"Error storing API key: {e!s}") from e
 
 
 def _raise_not_found() -> None:
@@ -245,17 +506,41 @@ def _raise_not_found() -> None:
 async def revoke_auth(
     user_id: str,
     oauth_manager: OAuthDep,
+    authenticated_user_id: str = Query(..., description="Authenticated user ID from OAuth"),
 ) -> dict[str, str]:
-    """Revoke OAuth credentials for a user."""
+    """Revoke OAuth credentials and API key for a user.
+
+    Args:
+        user_id: The user whose credentials to revoke
+        oauth_manager: OAuth manager dependency
+        authenticated_user_id: The user who is currently authenticated (from OAuth)
+
+    Returns:
+        Response confirming revocation
+
+    Raises:
+        HTTPException: If user is not authorized or credentials don't exist
+    """
     try:
-        success = oauth_manager.revoke_credentials(user_id)
-        if not success:
+        # Verify user is revoking their own credentials
+        _verify_user_authorization(authenticated_user_id, user_id)
+
+        # Revoke OAuth credentials
+        oauth_success = oauth_manager.revoke_credentials(user_id)
+
+        # Revoke API key
+        api_key_success = _revoke_user_api_key(user_id)
+
+        # At least one credential should have been revoked
+        if not oauth_success and not api_key_success:
             _raise_not_found()
+
+        logger.info("Revoked credentials for user %s", user_id)
         return {"user_id": user_id, "status": "revoked"}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.exception("Error revoking credentials")
         raise HTTPException(status_code=500, detail=f"Error revoking credentials: {e!s}") from e
