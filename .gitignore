@@ -47,3 +47,5 @@ coverage.xml
 
 .coverage*
 TESTING_STATUS.md
+
+.python-version
