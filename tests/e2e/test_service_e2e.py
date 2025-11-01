@@ -42,7 +42,7 @@ def test_service_root_endpoint(check_service_running) -> None:
     assert response.status_code == 200
     data = response.json()
     assert "message" in data
-    assert "Mail Client Service" in data["message"]
+    assert "Gemini AI Service" in data["message"]
 
 
 @pytest.mark.local_credentials

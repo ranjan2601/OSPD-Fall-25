@@ -28,7 +28,7 @@ def get_mail_client() -> Client:
         raise
 
 
-def _get_mock_client() -> Client:  # noqa: C901
+def _get_mock_client() -> Client:
     """Create a mock client for testing purposes."""
 
     class MockMessage:
@@ -66,7 +66,7 @@ def _get_mock_client() -> Client:  # noqa: C901
         def mark_as_read(self, message_id: str) -> bool:
             return True
 
-    return MockClient()  # type: ignore[return-value]
+    return MockClient()
 
 
 # Type alias for dependency injection (must be after get_mail_client definition)

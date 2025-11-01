@@ -1,4 +1,3 @@
-
 import httpx
 import pytest
 
@@ -16,11 +15,18 @@ SERVICE_URL = "http://localhost:8000"
 
 @pytest.fixture(scope="module")
 def check_service_running() -> None:
-    """Check if the service is running before tests."""
+    """Check if the mail_client_service is running before tests."""
     try:
         response = httpx.get(SERVICE_URL, timeout=2.0)
         if response.status_code != 200:
             pytest.skip(f"Service at {SERVICE_URL} is not responding correctly")
+        # Check if it's actually the mail_client_service by checking for /messages endpoint
+        messages_response = httpx.get(f"{SERVICE_URL}/messages", timeout=2.0)
+        if messages_response.status_code == 404:
+            pytest.skip(
+                f"Service at {SERVICE_URL} is not the mail_client_service (got 404 on /messages). "
+                "Please start the mail_client_service with: cd src/mail_client_service && uv run uvicorn main:app --reload",
+            )
     except (httpx.ConnectError, httpx.TimeoutException):
         pytest.skip(
             f"Service not running at {SERVICE_URL}. "
