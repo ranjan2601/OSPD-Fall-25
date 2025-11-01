@@ -1,5 +1,8 @@
+import base64
+import json
 import logging
 import os
+import tempfile
 from pathlib import Path
 from typing import Annotated
 
@@ -64,17 +67,50 @@ def get_ai_client() -> AIClient:
 
 
 def get_oauth_manager() -> OAuthManager:
-    """Dependency that provides an OAuth manager instance."""
-    credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
+    """Dependency that provides an OAuth manager instance.
+
+    Supports two methods of providing credentials:
+    1. GOOGLE_CREDENTIALS_B64: Base64-encoded credentials JSON (recommended for production)
+    2. GOOGLE_CREDENTIALS_FILE: Path to credentials JSON file (for local development)
+    """
     db_path = os.getenv("GEMINI_DB_PATH", "conversations.db")
 
+    # Try base64-encoded credentials first (Fly.io production)
+    credentials_b64 = os.getenv("GOOGLE_CREDENTIALS_B64")
+    if credentials_b64:
+        try:
+            credentials_json_str = base64.b64decode(credentials_b64).decode("utf-8")
+            credentials_data = json.loads(credentials_json_str)
+
+            # Create a temporary file to store the credentials
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=".json",
+                delete=False,
+            ) as temp_file:
+                json.dump(credentials_data, temp_file)
+                temp_file.flush()
+                credentials_file = temp_file.name
+                logger.info("Using base64-encoded OAuth credentials from environment")
+                return OAuthManager(credentials_file=credentials_file, db_path=db_path)
+        except (base64.binascii.Error, json.JSONDecodeError, ValueError) as e:
+            logger.exception("Failed to decode GOOGLE_CREDENTIALS_B64")
+            msg = "Invalid OAuth credentials in GOOGLE_CREDENTIALS_B64"
+            raise HTTPException(status_code=500, detail=msg) from e
+
+    # Fall back to file-based credentials (local development)
+    credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
     if not Path(credentials_file).exists():
-        msg = "OAuth credentials file not configured"
+        msg = (
+            "OAuth credentials not configured. "
+            "Set GOOGLE_CREDENTIALS_B64 or GOOGLE_CREDENTIALS_FILE"
+        )
         raise HTTPException(
             status_code=500,
             detail=msg,
         )
 
+    logger.info("Using OAuth credentials from file: %s", credentials_file)
     return OAuthManager(credentials_file=credentials_file, db_path=db_path)
 
 

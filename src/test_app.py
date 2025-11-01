@@ -1,9 +1,15 @@
 """Tests for the combined FastAPI application."""
 
+import sys
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
-from app import app
+# Add src directory to path so we can import app
+sys.path.insert(0, str(Path(__file__).parent))
+
+from app import app  # type: ignore[import-not-found]  # noqa: E402
 
 
 @pytest.fixture
