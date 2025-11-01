@@ -4,14 +4,12 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from gemini_service.api import router as gemini_router
+from mail_client_service.api import router as mail_router
 
 # Load environment variables from .env file
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(env_path, override=True)
-
-# Import routers from both services
-from mail_client_service.api import router as mail_router
-from gemini_service.api import router as gemini_router
 
 app = FastAPI(
     title="OSPD Services",
@@ -25,7 +23,7 @@ app.include_router(gemini_router, prefix="/ai", tags=["Gemini AI"])
 
 
 @app.get("/")
-def read_root() -> dict[str, str]:
+def read_root() -> dict[str, str | list[str]]:
     """Root endpoint showing both services are running."""
     return {
         "message": "OSPD Services are running",
@@ -34,6 +32,6 @@ def read_root() -> dict[str, str]:
 
 
 @app.get("/health")
-def health_check() -> dict[str, str]:
+def health_check() -> dict[str, str | list[str]]:
     """Health check endpoint."""
     return {"status": "healthy", "services": ["mail", "ai"]}

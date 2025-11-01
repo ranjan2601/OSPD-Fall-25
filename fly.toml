@@ -27,6 +27,6 @@ primary_region = 'ewr'  # Newark (closest to NYC)
   size = 'shared-cpu-1x'
   memory = '256mb'
 
-[mounts]
+[[mounts]]
   source = "ospd_data"
   destination = "/data"
