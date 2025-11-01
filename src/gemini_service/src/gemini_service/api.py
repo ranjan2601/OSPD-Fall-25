@@ -276,8 +276,9 @@ async def send_message(
         if not api_key:
             _raise_missing_api_key()
 
-        # Create client with user's API key
-        db_path = f"conversations_{request.user_id}.db"
+        # Create client with user's API key (use /data directory for persistence)
+        data_dir = os.getenv("GEMINI_DB_PATH", "conversations.db").rsplit("/", 1)[0]
+        db_path = f"{data_dir}/conversations_{request.user_id}.db"
         client = GeminiClient(api_key=api_key, db_path=db_path)
 
         response = client.send_message(request.user_id, request.message)
@@ -317,7 +318,8 @@ async def get_conversation_history(
         if not api_key:
             _raise_missing_api_key()
 
-        db_path = f"conversations_{user_id}.db"
+        data_dir = os.getenv("GEMINI_DB_PATH", "conversations.db").rsplit("/", 1)[0]
+        db_path = f"{data_dir}/conversations_{user_id}.db"
         client = GeminiClient(api_key=api_key, db_path=db_path)
 
         messages = client.get_conversation_history(user_id)
@@ -357,7 +359,8 @@ async def clear_conversation(
         if not api_key:
             _raise_missing_api_key()
 
-        db_path = f"conversations_{user_id}.db"
+        data_dir = os.getenv("GEMINI_DB_PATH", "conversations.db").rsplit("/", 1)[0]
+        db_path = f"{data_dir}/conversations_{user_id}.db"
         client = GeminiClient(api_key=api_key, db_path=db_path)
 
         success = client.clear_conversation(user_id)
