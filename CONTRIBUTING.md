@@ -1367,6 +1367,264 @@ This ensures secrets are never committed to the repository and are only availabl
 
 ---
 
+## Homework 2: Gemini AI Service (Team Contributions)
+
+### Project Overview
+
+Homework 2 extended the component-based architecture to create a complete AI chat service using Google Gemini. The project was divided among team members following the five-component pattern established in Homework 1.
+
+### Component Responsibilities
+
+#### Task A: Abstract AI Client API (`gemini_api/`)
+**Owner**: Team Member (API Design)
+
+**Responsibilities**:
+- Define abstract `AIClient` base class with chat operations
+- Create `Message` dataclass for conversation data
+- Establish factory function patterns for dependency injection
+- Write interface contract tests
+
+**Key Decisions**:
+- User-scoped operations (all methods require `user_id` parameter)
+- Dataclass for messages (simple data containers, no behavior needed)
+- Boolean returns for operations like `clear_conversation()` (consistent with HW1)
+
+**Deliverables**:
+- `src/gemini_api/src/gemini_api/client.py`: Abstract interface definitions
+- `src/gemini_api/tests/test_client.py`: Interface contract tests
+- 100% test coverage on interface definitions
+
+#### Task B: Gemini Implementation with OAuth (`gemini_impl/`)
+**Owner**: Team Member (Backend Implementation)
+
+**Responsibilities**:
+- Implement `AIClient` interface using Google Gemini API
+- Create `OAuthManager` for Google OAuth 2.0 flow
+- Build SQLite persistence layer for conversations and credentials
+- Implement automatic token refresh logic
+- Write comprehensive unit tests for all business logic
+
+**Key Decisions**:
+- SQLite for both conversation history and OAuth tokens (single database file)
+- Separate `OAuthManager` class (Single Responsibility Principle)
+- Automatic token refresh in `get_credentials()` (reduces user friction)
+- Per-user isolation using `user_id` as database key
+
+**Challenges Solved**:
+- Token refresh logic with proper error handling
+- Multi-user conversation isolation in single SQLite database
+- Graceful handling of expired credentials
+
+**Deliverables**:
+- `src/gemini_impl/src/gemini_impl/client.py`: Gemini AI client implementation
+- `src/gemini_impl/src/gemini_impl/oauth.py`: OAuth 2.0 manager
+- `src/gemini_impl/tests/test_client.py`: Unit tests for chat functionality
+- `src/gemini_impl/tests/test_oauth.py`: Unit tests for OAuth flow
+- 90%+ test coverage
+
+#### Task C: FastAPI Service (`gemini_service/`)
+**Owner**: Nishanth (Service Layer)
+
+**Responsibilities**:
+- Build FastAPI service exposing AI chat via REST endpoints
+- Implement OAuth flow endpoints (login, callback, revoke)
+- Create request/response Pydantic models for type safety
+- Implement dependency injection pattern for `AIClient` and `OAuthManager`
+- Build singleton mock client for CI testing
+- Write comprehensive endpoint tests with mocked dependencies
+- Write integration tests with FastAPI TestClient
+
+**Key Decisions**:
+- Singleton mock client pattern with global state (enables CI without API quotas)
+- FastAPI's `Depends()` for dependency injection (cleaner than HW1's `sys.modules` approach)
+- Separate OAuth dependency from AI client (reduces coupling)
+- Exception chaining with `raise ... from e` (preserves debugging info)
+- `pathlib.Path` instead of `os.path` (modern Python best practice)
+
+**Challenges Solved**:
+- Mock client state persistence between tests (added `_reset_mock_client()` function)
+- OAuth endpoint failures in tests (corrected dependency override to `_get_oauth_dep`)
+- Ruff linting errors (PTH110, B904, TRY003, EM101, TRY301)
+- MyPy type checking errors (missing return statements, parameter ordering)
+
+**Deliverables**:
+- `src/gemini_service/src/gemini_service/api.py`: FastAPI endpoints and dependency injection
+- `src/gemini_service/src/gemini_service/main.py`: FastAPI app entry point
+- `src/gemini_service/tests/test_api_endpoints.py`: 20+ unit tests for all endpoints
+- `src/gemini_service/tests/test_integration.py`: Integration tests with TestClient
+- 100% coverage on service layer, 92.88% overall
+
+**Testing Breakdown**:
+- Chat endpoints (send message, get history, clear history)
+- OAuth endpoints (login, callback, revoke)
+- Health check and root endpoints
+- Error handling (404, 500 status codes)
+- Mock client behavior verification
+- Dependency injection override testing
+
+#### Task D: Auto-Generated Client (`gemini_service_api_client/`)
+**Owner**: Team Member (Client Generation)
+
+**Responsibilities**:
+- Use `openapi-python-client` to generate Python HTTP client from OpenAPI schema
+- Ensure client generation works without running the service (schema-first approach)
+- Integrate generated client into `uv` workspace
+- Verify type safety and Pydantic validation
+
+**Key Decisions**:
+- Generate from OpenAPI schema (not live service)
+- Commit generated code to version control (deterministic builds)
+- Use httpx transport layer (modern, async-capable)
+- Pydantic v2 models for request/response validation
+
+**Generation Process**:
+```bash
+# Extract schema from running service
+curl http://localhost:8000/openapi.json > openapi_schema.json
+
+# Generate client
+openapi-python-client generate \
+  --path openapi_schema.json \
+  --output-path src/gemini_service_api_client
+
+# Add to workspace
+# Edit root pyproject.toml to include src/gemini_service_api_client
+```
+
+**Deliverables**:
+- `src/gemini_service_api_client/`: Complete auto-generated HTTP client
+- Generated Pydantic models for all request/response types
+- Type-safe API methods for all endpoints
+- pyproject.toml integration
+
+#### Task E: Service Client Adapter (`gemini_adapter/`)
+**Owner**: Team Member (Adapter Pattern)
+
+**Responsibilities**:
+- Implement `AIClient` interface using auto-generated HTTP client
+- Enable applications to use remote service with same interface as direct implementation
+- Write adapter tests with mocked HTTP client
+
+**Key Decisions**:
+- Composition over inheritance (adapter composes HTTP client)
+- Convert HTTP errors to exceptions matching `GeminiClient` behavior
+- Transform HTTP response dicts to `Message` dataclass instances
+- Default base URL `localhost:8000` with configurable override
+
+**Deliverables**:
+- `src/gemini_adapter/src/gemini_adapter/_impl.py`: `GeminiServiceAdapter` class
+- `src/gemini_adapter/tests/test_adapter.py`: Adapter unit tests
+- Full interface compliance with `AIClient` ABC
+
+### Team Workflow
+
+**Code Quality Standards**:
+- All code passes Ruff linting with zero errors
+- All code passes MyPy strict type checking
+- Minimum 85% test coverage (achieved 92.88%)
+- No unnecessary comments or emojis in code
+- Exception chaining (`raise ... from e`) throughout
+
+**Testing Standards**:
+- Unit tests for all components (mock external dependencies)
+- Integration tests for service layer (TestClient with mock backend)
+- E2E tests with real Gemini API (marked with `@pytest.mark.local_credentials`)
+- Test isolation with `_reset_mock_client()` function
+- FastAPI `app.dependency_overrides` for clean dependency injection in tests
+
+**Git Workflow**:
+- Branch: `hw2` (later merged to `hw2-api-impl`)
+- Commit messages:
+  - "Gemini FastAPI Service added" for `src/gemini_service/`
+  - "Updated pyproject.toml" for workspace configuration
+  - "Updated uv.lock" for dependency updates
+  - "Code formatting updates" for Ruff auto-formatted files
+- All commits signed off by contributors
+- PR reviews required before merge
+
+**Challenges Overcome**:
+1. **SQLite ImportError**: Environment conflict between Anaconda Python and macOS system libraries. Fixed by creating clean virtual environment using system Python 3.11 framework.
+2. **Pytest Version Conflict**: Resolved by using `uv run pytest` instead of system pytest.
+3. **OAuth Test Failures**: Fixed by overriding correct dependency function (`_get_oauth_dep` not `get_oauth_manager`).
+4. **Mock Client State Persistence**: Added `_reset_mock_client()` calls to ensure test isolation.
+5. **Ruff Linting Errors**: Systematically addressed all violations (B904, PTH110, TRY003, EM101, TRY301, PLW0603).
+
+### CI/CD Integration
+
+**CircleCI Configuration**:
+- All tests run in CI without Gemini API keys (mock client fallback)
+- Coverage reports uploaded to CircleCI artifacts
+- MyPy type checking enforced on every commit
+- Ruff linting enforced on every commit
+- Tests exclude `@pytest.mark.local_credentials` in CI
+
+**Test Execution**:
+```bash
+# CI-compatible tests (no credentials required)
+uv run pytest src/ tests/ -m "not local_credentials" --cov=src --cov-report=term
+
+# Local E2E tests (with real API)
+uv run pytest tests/e2e/test_gemini_e2e.py
+```
+
+### Architecture Consistency with Homework 1
+
+The Gemini AI Service maintains the same design patterns as the Mail Client Service:
+
+**Similarities**:
+- Five-component architecture (API, Implementation, Service, Client, Adapter)
+- Interface-driven design with ABC
+- Dependency injection pattern
+- FastAPI for service layer
+- Auto-generated HTTP client with `openapi-python-client`
+- Adapter pattern for remote service access
+- Mock client fallback for CI testing
+- 85%+ test coverage requirement
+
+**Improvements Over HW1**:
+- Better dependency injection (FastAPI `Depends()` vs. `sys.modules` manipulation)
+- Explicit test isolation (`_reset_mock_client()` function)
+- Exception chaining (`raise ... from e`) throughout
+- Modern Python practices (`pathlib.Path` instead of `os.path`)
+- OAuth 2.0 authentication flow (not present in HW1)
+- Multi-user state management with SQLite
+
+**New Complexity**:
+- OAuth 2.0 flow with token refresh
+- Multi-user conversation isolation
+- Per-user credential management
+- Conversation history persistence
+- Stateful service (conversations stored across requests)
+
+### Lessons Learned
+
+**1. Test Isolation is Critical**:
+Singleton patterns with global state (like `_mock_client_instance`) require explicit reset mechanisms. Without `_reset_mock_client()`, state bleeds between tests causing intermittent failures.
+
+**2. FastAPI Dependency Injection is Powerful**:
+FastAPI's `app.dependency_overrides` provides cleaner test isolation than manual factory replacement. It's more idiomatic and easier to understand than Homework 1's approach.
+
+**3. Exception Chaining Improves Debugging**:
+Using `raise ... from e` preserves the full traceback, making it much easier to debug issues in production. This is especially important in service layers where errors propagate through multiple layers.
+
+**4. Modern Python Tools Catch Bugs Early**:
+Ruff and MyPy caught numerous potential bugs during development:
+- Missing return statements (MyPy)
+- Incorrect parameter ordering (Ruff)
+- Missing exception chaining (Ruff B904)
+- Path vs. os.path issues (Ruff PTH110)
+
+**5. SQLite Works for Prototypes, Not Production**:
+SQLite is excellent for development and demonstration, but the team recognizes it's not suitable for high-concurrency production. For production deployment, we would use PostgreSQL for persistence and Redis for session management.
+
+**6. Documentation is as Important as Code**:
+Comprehensive documentation in `design.md`, `CONTRIBUTING.md`, and READMEs ensures that:
+- Future contributors understand design decisions
+- Tradeoffs are explicitly documented
+- Architectural patterns are consistent across projects
+
+---
+
 ## Getting Started
 
 Ready to contribute? Here's how to get started:

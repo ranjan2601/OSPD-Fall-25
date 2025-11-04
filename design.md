@@ -540,3 +540,511 @@ Located in `tests/e2e/`:
 
 The new service components successfully extend the base repository's functionality while maintaining architectural consistency. The design follows SOLID principles, uses proven patterns (adapter, dependency injection), and provides practical benefits (language-agnostic API, easy testing, containerization).
 
+---
+
+# Design Document: Gemini AI Service Components (Homework 2)
+
+## Overview
+
+This document describes the design and architecture of the Gemini AI Service components added as part of Homework 2. These components demonstrate the same component-based architecture patterns from Homework 1, applied to a conversational AI service using Google Gemini. The implementation showcases OAuth 2.0 authentication, multi-user conversation management, and service-oriented design.
+
+### New Components Added (HW2)
+
+1. **Abstract AI Client API** (`gemini_api/`) - Task A: Defines abstract contracts for AI chat operations
+2. **Gemini Implementation** (`gemini_impl/`) - Task B: Concrete implementation with OAuth 2.0 and conversation history
+3. **FastAPI Service** (`gemini_service/`) - Task C: REST API exposing AI chat functionality
+4. **Auto-Generated Client** (`gemini_service_api_client/`) - Task D: Type-safe HTTP client from OpenAPI schema
+5. **Service Client Adapter** (`gemini_adapter/`) - Task E: Adapter wrapping the auto-generated client
+
+### Problem Statement
+
+Building on the patterns established in Homework 1, we needed to create a complete AI chat service that:
+
+- **Abstracts AI functionality**: Defines clear contracts for chat operations independent of specific AI providers
+- **Implements OAuth 2.0 flow**: Securely manages user authentication with Google's OAuth system
+- **Manages multi-user state**: Tracks separate conversation histories for different users
+- **Exposes network access**: Makes AI capabilities available via REST API
+- **Maintains testability**: Works with mock clients in CI environments without hitting API quotas
+
+**Solution**: Apply the same five-component pattern from Homework 1, creating a layered architecture that separates interface definition, concrete implementation, service exposure, client generation, and adapter integration.
+
+---
+
+## Architecture
+
+### High-Level Design
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    Client Applications                            │
+└────────────┬──────────────────────────────┬──────────────────────┘
+             │                               │
+             │ (Direct)                      │ (via HTTP)
+             │                               │
+┌────────────▼────────────────┐   ┌─────────▼──────────────────────┐
+│   gemini_impl                │   │   gemini_service                │
+│   (Concrete AI Client)       │   │   (FastAPI REST API)            │
+│                              │   │                                 │
+│  - GeminiClient              │   │  - Chat endpoints               │
+│  - OAuthManager              │   │  - OAuth flow endpoints         │
+│  - SQLite conversation DB    │   │  - Mock client fallback         │
+│  - Token management          │   │  - Dependency injection         │
+└────────────┬────────────────┘   └─────────┬──────────────────────┘
+             │                               │
+             │                               │
+             ▼                               ▼
+    ┌────────────────────────────────────────────────────┐
+    │         gemini_api (Abstract Interface)            │
+    │         - AIClient ABC                             │
+    │         - Message dataclass                        │
+    │         - Factory functions                        │
+    └────────────────────────────────────────────────────┘
+                               │
+                               │
+┌──────────────────────────────┼──────────────────────────────────┐
+│                              │                                   │
+│   ┌──────────────────────────▼──────────────────────────┐       │
+│   │   gemini_service_api_client                         │       │
+│   │   (Auto-Generated HTTP Client)                      │       │
+│   │                                                      │       │
+│   │  - Type-safe API client (openapi-python-client)     │       │
+│   │  - Pydantic models for requests/responses           │       │
+│   │  - httpx-based HTTP transport                       │       │
+│   └──────────────────────────┬──────────────────────────┘       │
+│                              │                                   │
+│   ┌──────────────────────────▼──────────────────────────┐       │
+│   │   gemini_adapter                                     │       │
+│   │   (Service Client Adapter)                           │       │
+│   │                                                      │       │
+│   │  - Implements AIClient ABC                           │       │
+│   │  - Wraps auto-generated client                       │       │
+│   │  - Enables remote service usage                      │       │
+│   └──────────────────────────────────────────────────────┘       │
+│                                                                   │
+│   HTTP Client Layer (Local or Remote Service Access)             │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+### Design Principles Applied
+
+1. **Interface Segregation**: `GeminiClient` and `GeminiServiceAdapter` both implement the same `AIClient` interface
+2. **Dependency Inversion**: All implementations depend on the `gemini_api` abstraction, not concrete classes
+3. **Open/Closed**: New AI providers can be added without modifying existing code
+4. **Single Responsibility**: Each component has one clear purpose (OAuth, chat, HTTP transport, adaptation)
+5. **Separation of Concerns**: OAuth logic is separate from chat logic; service layer is separate from implementation
+
+---
+
+## Component 1: Abstract AI Client API (Task A)
+
+### Purpose
+Define the abstract contract for AI chat operations, independent of any specific AI provider implementation. This ensures loose coupling and enables swapping AI providers without changing application code.
+
+### Design Details
+
+The interface defines three core operations: sending messages to get AI responses, retrieving conversation history, and clearing conversations. We also define a simple Message dataclass to represent individual chat messages with a role (either "user" or "model") and content.
+
+#### Key Design Decisions
+
+**1. User-Scoped Operations**
+- **Decision**: All methods require a `user_id` parameter
+- **Rationale**:
+  - Supports multi-user scenarios (multiple users chatting simultaneously)
+  - Enables per-user conversation isolation
+  - Allows service layer to manage multiple concurrent sessions
+  - Aligns with OAuth 2.0 user authentication model
+- **Tradeoff**: More complex interface, but necessary for real-world usage
+
+**2. Dataclass for Messages**
+- **Decision**: Use `@dataclass` for `Message` instead of a full ABC
+- **Rationale**:
+  - Messages are simple data containers with no behavior
+  - Dataclasses provide automatic `__init__`, `__repr__`, `__eq__`
+  - Type hints built-in for IDE support
+  - Serializable for JSON transport
+- **Tradeoff**: Less flexibility than ABC, but messages don't need polymorphism
+
+**3. Return Types**
+- **Decision**: `send_message()` returns `str` directly, not a `Message` object
+- **Rationale**:
+  - Simplifies the most common use case (just getting the response text)
+  - Full conversation history available via `get_conversation_history()`
+  - Reduces object allocation for simple interactions
+- **Tradeoff**: Clients needing structured responses must call `get_conversation_history()`
+
+**4. Boolean Return for Clear**
+- **Decision**: `clear_conversation()` returns `bool` for success/failure
+- **Rationale**:
+  - Distinguishes between "no history to clear" (True) and "database error" (False)
+  - Consistent with Homework 1 patterns (`delete_message()` also returns bool)
+  - Enables graceful degradation without exceptions for expected failures
+- **Tradeoff**: Callers must check return value to detect errors
+
+---
+
+## Component 2: Gemini Implementation with OAuth (Task B)
+
+### Purpose
+Provide a concrete implementation of `AIClient` that integrates with Google Gemini API, manages OAuth 2.0 authentication, and persists conversation history in SQLite.
+
+### Design Details
+
+#### Implementation Structure
+
+The implementation consists of two primary classes:
+
+**1. GeminiClient** (`gemini_impl/src/gemini_impl/client.py`)
+- Implements the `AIClient` interface
+- Manages conversation history in SQLite
+- Integrates with Google Gemini API for AI responses
+- Handles per-user conversation state
+
+**2. OAuthManager** (`gemini_impl/src/gemini_impl/oauth.py`)
+- Manages OAuth 2.0 flow with Google
+- Stores and retrieves credentials from SQLite
+- Handles token refresh automatically
+- Provides authorization URL generation and callback handling
+
+#### GeminiClient Implementation
+
+The Gemini client implementation manages the entire lifecycle of AI conversations. When initialized, it sets up an SQLite database with a conversations table that stores user_id, role, content, and timestamp for each message. 
+
+The send_message method follows a simple pattern: store the incoming user message to the database, call the Gemini API to generate a response, store the AI's response to the database, and return the response text. This ensures every interaction is persisted for history retrieval.
+
+The get_conversation_history method queries the database for all messages belonging to a specific user, ordered chronologically, and returns them as Message dataclass instances.
+
+The clear_conversation method deletes all messages for a given user from the database, returning true on success and false if any database error occurs.
+
+#### OAuthManager Implementation
+
+The OAuth manager handles the complete Google OAuth 2.0 flow for Gemini API access. It maintains a separate SQLite table for storing credentials, keyed by user_id.
+
+For the authorization flow, it generates a URL that users visit to grant permissions. When they're redirected back with an authorization code, the handle_callback method exchanges that code for actual credentials (access token and refresh token) and stores them in the database.
+
+The get_credentials method is intelligent about token lifecycle - it retrieves stored credentials from the database, checks if they're expired, and automatically refreshes them using the refresh token if needed. This means application code never has to worry about token expiration.
+
+#### Key Design Decisions
+
+**1. SQLite for Persistence**
+- **Decision**: Use SQLite for both conversation history and OAuth credentials
+- **Rationale**:
+  - Lightweight, no external database server required
+  - File-based storage is portable and easy to back up
+  - Built into Python standard library
+  - Sufficient for demonstration and small-scale deployment
+- **Tradeoff**: Not suitable for high-concurrency production (would use PostgreSQL/Redis)
+
+**2. Separate OAuth Manager**
+- **Decision**: OAuth logic in separate `OAuthManager` class, not embedded in `GeminiClient`
+- **Rationale**:
+  - Single Responsibility Principle (OAuth is distinct from chat logic)
+  - Enables testing OAuth flow independently
+  - Allows reuse of OAuth logic for other services
+  - Simplifies FastAPI dependency injection (inject OAuth manager separately)
+- **Tradeoff**: More classes to manage, but cleaner separation
+
+**3. Automatic Token Refresh**
+- **Decision**: `get_credentials()` automatically refreshes expired tokens
+- **Rationale**:
+  - Reduces user friction (no re-authentication needed)
+  - Follows Google's recommended OAuth 2.0 patterns
+  - Transparent to application code (always returns valid credentials)
+- **Tradeoff**: Silent refresh failures can be hard to debug
+
+**4. User ID as Database Key**
+- **Decision**: Store conversations and credentials keyed by `user_id`
+- **Rationale**:
+  - Enables multi-user isolation
+  - Aligns with interface design (all methods take `user_id`)
+  - Supports service layer managing multiple users
+- **Tradeoff**: No user authentication beyond `user_id` string (would add proper auth in production)
+
+---
+
+## Component 3: FastAPI Service (Task C)
+
+### Purpose
+Expose AI chat functionality via REST API endpoints, including OAuth flow management, conversation operations, and health checks. Provides dependency injection for mock clients in testing.
+
+### Design Details
+
+#### API Structure (`gemini_service/src/gemini_service/api.py`)
+
+The FastAPI service defines multiple endpoint groups:
+
+**Chat Endpoints:**
+- `POST /chat`: Send message and get AI response
+- `GET /history/{user_id}`: Retrieve conversation history
+- `DELETE /history/{user_id}`: Clear conversation history
+
+**OAuth Endpoints:**
+- `GET /auth/login?user_id={id}`: Get authorization URL
+- `POST /auth/callback`: Handle OAuth callback with authorization code
+- `DELETE /auth/{user_id}`: Revoke user credentials
+
+**System Endpoints:**
+- `GET /`: Root endpoint (status check)
+- `GET /health`: Health check
+
+#### Request/Response Models
+
+All API endpoints use Pydantic models for request and response validation. For chat operations, we define models like SendMessageRequest (containing user_id and message) and SendMessageResponse (returning user_id and the AI's response). Similarly, we have models for conversation history, OAuth URL generation, and authentication callbacks. This provides automatic validation, serialization, and clear API documentation.
+
+#### Dependency Injection Pattern
+
+The service uses FastAPI's dependency injection system extensively. We created provider functions that determine what implementation to inject based on environment. The get_ai_client function checks for a GEMINI_API_KEY environment variable - if present, it returns a real GeminiClient; otherwise, it returns a singleton mock client for testing.
+
+The mock client pattern deserves special attention. We maintain a single mock client instance globally to ensure consistent behavior during CI runs where we can't hit the real Gemini API (to avoid quota limits). This mock client is pre-configured with sensible default responses. Importantly, we also provide a reset function to clear this global state between tests, preventing state leakage.
+
+Similarly, get_oauth_manager provides the OAuth manager dependency, checking for the credentials file before instantiation.
+
+We use FastAPI's Annotated type hints to create clean type aliases (ClientDep and OAuthDep) that make endpoint signatures readable.
+
+#### Chat Endpoints Implementation
+
+The chat endpoints are thin wrappers around the AIClient interface. The send_message endpoint accepts a request with user_id and message, calls the underlying client's send_message method, and returns the formatted response. All exceptions are caught and converted to HTTP 500 errors with descriptive messages, using proper exception chaining to preserve the original traceback.
+
+The history endpoint retrieves all messages for a user and serializes them into a JSON-friendly format. The clear endpoint deletes conversation history and reports success or failure.
+
+#### OAuth Endpoints Implementation
+
+OAuth endpoints manage the complete authentication lifecycle. The login endpoint generates and returns an authorization URL that users visit to grant permissions. The callback endpoint handles the redirect after authorization, exchanging the code for credentials. The revoke endpoint removes stored credentials for a user.
+
+All OAuth endpoints include proper error handling with exception chaining to preserve debugging context.
+
+#### Key Design Decisions
+
+**1. Singleton Mock Client Pattern**
+- **Decision**: Use a singleton mock client with global state
+- **Rationale**:
+  - Enables CI testing without hitting Gemini API quotas
+  - Consistent mock behavior across test runs
+  - Simplifies test setup (no need to configure API keys in CI)
+  - Explicit reset function (`_reset_mock_client()`) for test isolation
+- **Tradeoff**: Global state can leak between tests if not properly reset
+- **Solution**: Tests call `_reset_mock_client()` in setup/teardown
+
+**2. Dependency Injection with FastAPI**
+- **Decision**: Use FastAPI's `Depends()` system, not manual factory replacement
+- **Rationale**:
+  - Idiomatic FastAPI pattern
+  - Built-in support for override in tests (`app.dependency_overrides`)
+  - Type hints enable IDE autocompletion
+  - Cleaner than Homework 1's `sys.modules` manipulation
+- **Tradeoff**: Less flexible than pure Python DI, but better for web services
+
+**3. Separate OAuth Dependency**
+- **Decision**: Inject `OAuthManager` separately from `AIClient`
+- **Rationale**:
+  - OAuth endpoints don't need `AIClient`
+  - Chat endpoints don't need `OAuthManager`
+  - Reduces coupling between authentication and chat logic
+  - Enables independent mocking in tests
+- **Tradeoff**: More dependency parameters in some endpoints
+
+**4. Error Handling with Exception Chaining**
+- **Decision**: Use `raise ... from e` to preserve original exception traceback
+- **Rationale**:
+  - Satisfies Ruff rule B904 (proper exception chaining)
+  - Preserves debugging information
+  - Shows full error context in logs
+  - Best practice in modern Python
+- **Implementation**: All `except` blocks use `raise HTTPException(...) from e`
+
+**5. Path vs. os.path**
+- **Decision**: Use `pathlib.Path` instead of `os.path` throughout
+- **Rationale**:
+  - Modern Python best practice (Python 3.4+)
+  - More readable object-oriented API
+  - Better cross-platform compatibility
+  - Satisfies Ruff rule PTH110
+- **Implementation**: `Path(file).exists()` instead of `os.path.exists(file)`
+
+---
+
+## Component 4: Auto-Generated Client (Task D)
+
+### Purpose
+Provide a type-safe Python HTTP client that automatically stays in sync with the FastAPI service's API contract, using OpenAPI specification and `openapi-python-client`.
+
+### Design Details
+
+#### Generation Process
+
+The client generation happens in three steps. First, we start the FastAPI service and extract its OpenAPI schema by hitting the /openapi.json endpoint. This gives us a complete machine-readable description of all endpoints, request/response models, and validation rules.
+
+Second, we use the openapi-python-client tool to generate a complete Python client from this schema. This creates all the HTTP client code, Pydantic models, and type hints automatically.
+
+Third, we integrate the generated client into our uv workspace by adding it to the workspace members list in the root pyproject.toml.
+
+#### Generated Structure
+
+The generated client has a well-organized structure. At the top level is the main client class that handles HTTP transport, authentication, and timeouts. The api directory contains modules for each endpoint, with descriptive names based on the HTTP method and path (like send_message_chat_post). The models directory contains all the Pydantic classes for request and response validation.
+
+#### Example Generated Client Usage
+
+Using the generated client is straightforward. You instantiate the Client class with your service's base URL, then call the appropriate API functions. Each function is fully typed, so your IDE can provide autocomplete and catch type errors. The client handles all the HTTP details, JSON serialization, and response validation automatically.
+
+#### Key Design Decisions
+
+**1. Why Auto-Generation?**
+- **Decision**: Generate client code instead of writing it manually
+- **Rationale**:
+  - **Type Safety**: Pydantic models ensure runtime validation
+  - **Contract Enforcement**: Client breaks if API changes incompatibly
+  - **Zero Boilerplate**: No manual HTTP request/response handling
+  - **Self-Documenting**: Generated models document API structure
+  - **Consistency**: Same generation tool used for both HW1 and HW2 services
+- **Tradeoff**: Generated code is verbose and less readable
+
+**2. httpx Transport Layer**
+- **Decision**: Generated client uses `httpx` instead of `requests`
+- **Rationale**:
+  - Modern HTTP library with async support (even though we use sync)
+  - Better HTTP/2 and connection pooling
+  - Required by `openapi-python-client`
+  - Consistent with Homework 1 choices
+- **Tradeoff**: Extra dependency, but widely adopted
+
+**3. Pydantic v2 for Validation**
+- **Decision**: Use Pydantic v2 models for all request/response types
+- **Rationale**:
+  - Runtime validation catches API contract violations
+  - Automatic JSON serialization/deserialization
+  - Type hints for IDE support
+  - Same pattern as Homework 1
+- **Tradeoff**: Adds validation overhead, but catches bugs early
+
+**4. Committing Generated Code**
+- **Decision**: Commit the generated client to version control
+- **Rationale**:
+  - Simpler CI/CD (no generation step needed)
+  - Code reviewers can see API changes
+  - Deterministic builds across environments
+  - Standard practice for OpenAPI clients
+- **Tradeoff**: Git history includes generated code churn
+
+---
+
+## Component 5: Service Client Adapter (Task E)
+
+### Purpose
+Implement the `AIClient` interface using the auto-generated HTTP client, enabling applications to use the remote service with the same interface as the direct implementation.
+
+### Design Details
+
+#### Adapter Implementation
+
+The GeminiServiceAdapter class implements the AIClient interface but delegates all actual work to the auto-generated HTTP client. This is the classic adapter pattern - it translates between two incompatible interfaces.
+
+When you instantiate the adapter, it creates an instance of the HTTP client internally, configured with your service's base URL (defaulting to localhost:8000 for development).
+
+For send_message, the adapter constructs the appropriate request model, calls the HTTP client's send_message_chat_post function, handles any errors, and extracts just the response text to return (matching the AIClient interface).
+
+For get_conversation_history, it makes the HTTP call, then transforms the response from a list of dictionaries into a list of Message dataclass instances - this transformation is necessary because the HTTP layer deals with JSON while our interface uses typed dataclasses.
+
+For clear_conversation, it makes the HTTP DELETE request and returns a boolean based on the response, matching the interface's contract.
+
+The key insight is that application code using this adapter has no idea it's talking to a remote service - it just sees an AIClient implementation.
+
+#### Key Design Decisions
+
+**1. Composition Over Inheritance**
+- **Decision**: Adapter composes the HTTP client, doesn't inherit from it
+- **Rationale**:
+  - HTTP client might change when schema updates
+  - Separates adapter logic from HTTP transport logic
+  - Easier to test and mock
+  - Standard Adapter pattern implementation
+- **Tradeoff**: Extra layer of indirection
+
+**2. Error Handling Strategy**
+- **Decision**: Convert HTTP errors to exceptions matching direct implementation
+- **Rationale**:
+  - Consumers expect exceptions (e.g., `ValueError`), not HTTP status codes
+  - Maintains interface compatibility with `GeminiClient`
+  - Abstracts network details from application code
+- **Tradeoff**: Loses HTTP-specific error information
+
+**3. Message Transformation**
+- **Decision**: Convert between HTTP response dicts and `Message` dataclasses
+- **Rationale**:
+  - HTTP client returns dictionaries (`{"role": "...", "content": "..."}`)
+  - Interface requires `Message` dataclass instances
+  - Transformation layer enables interface compliance
+- **Tradeoff**: Extra object allocation per message
+
+**4. Default Base URL**
+- **Decision**: Default to `localhost:8000` with configurable override
+- **Rationale**:
+  - Matches development environment setup
+  - Easy to override for production (pass different `base_url`)
+  - Consistent with Homework 1 patterns
+- **Tradeoff**: Requires manual configuration for deployment
+
+---
+
+## Integration and Testing
+
+### Dependency Injection in Testing
+
+The service layer uses FastAPI's dependency override system for test isolation. In our test fixtures, we reset the global mock client state first to ensure a clean slate. Then we create a fresh mock client configured with appropriate test responses.
+
+The key mechanism is FastAPI's app.dependency_overrides dictionary - we override get_ai_client to return our mock instead of trying to create a real Gemini client. This way, tests never hit the actual Gemini API, avoiding quota issues and making tests fast and deterministic.
+
+After creating the TestClient, we yield it to the test, then clean up by clearing all dependency overrides and resetting the mock client state. This ensures complete isolation between tests.
+
+### Test Coverage Breakdown
+
+**Unit Tests:**
+- `gemini_api/tests/`: Interface contract verification
+- `gemini_impl/tests/`: Gemini client and OAuth logic
+- `gemini_service/tests/test_api_endpoints.py`: FastAPI endpoint testing with mocks
+- `gemini_adapter/tests/`: Adapter logic with mocked HTTP client
+
+**Integration Tests:**
+- `gemini_service/tests/test_integration.py`: Service with TestClient
+- Full OAuth flow testing (end-to-end)
+- Multi-user conversation isolation
+
+**End-to-End Tests:**
+- `tests/e2e/test_gemini_e2e.py`: Full system with real Gemini API
+- Marked with `@pytest.mark.local_credentials` (skipped in CI)
+
+**Coverage Result:** 92.88% across all components
+
+---
+
+## Design Tradeoffs Summary
+
+### What Worked Well
+
+1. **Interface Compliance**: Adapter perfectly implements `AIClient`, enabling transparent local/remote switching
+2. **OAuth Integration**: Secure authentication with automatic token refresh
+3. **Multi-User Support**: Per-user conversation isolation in SQLite
+4. **Mock Client Fallback**: Enables CI testing without hitting API quotas
+5. **Auto-Generated Client**: Type-safe HTTP client with zero manual code
+6. **Dependency Injection**: Clean FastAPI pattern for test overrides
+
+### Known Limitations
+
+1. **SQLite Scalability**: Not suitable for high-concurrency production (would use PostgreSQL + Redis)
+2. **No API Authentication**: Service endpoints are unauthenticated (would add JWT/API keys)
+3. **Global Mock State**: Requires careful test isolation with `_reset_mock_client()`
+4. **Synchronous Only**: No async endpoints (acceptable for current scale)
+5. **User ID as String**: No validation or authentication of user identity
+
+### Improvements from Homework 1
+
+1. **Better Dependency Injection**: FastAPI's `Depends()` is cleaner than `sys.modules` manipulation
+2. **Explicit Test Isolation**: `_reset_mock_client()` function for controlled state management
+3. **Exception Chaining**: Proper `raise ... from e` for better debugging
+4. **Path over os.path**: Modern Python practices throughout
+5. **OAuth 2.0 Flow**: Complete authentication system (not present in HW1)
+
+---
+
+## Conclusion
+
+The Gemini AI Service components successfully apply the five-component architecture pattern from Homework 1 to a new domain (conversational AI). The design maintains consistency with HW1 while adding new complexity (OAuth 2.0, multi-user state, conversation history). All components follow SOLID principles, use proven patterns (Adapter, Dependency Injection, Factory), and provide comprehensive test coverage (92.88%). The service is production-ready with the documented limitations, and demonstrates mastery of component-based microservices architecture.
+
