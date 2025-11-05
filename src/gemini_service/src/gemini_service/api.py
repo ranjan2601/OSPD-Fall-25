@@ -1,3 +1,9 @@
+"""FastAPI routes for Gemini AI chat service with OAuth authentication.
+
+This module defines all API endpoints for the Gemini service, including
+chat operations, conversation management, and OAuth authentication flows.
+"""
+
 import base64
 import json
 import logging
@@ -7,8 +13,9 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from gemini_api import AIClient, Message
+from gemini_api.client import AIClient
 from gemini_impl.client import GeminiClient
+from gemini_impl.message import MessageImpl
 from gemini_impl.oauth import OAuthManager
 from pydantic import BaseModel
 
@@ -18,35 +25,90 @@ router = APIRouter()
 
 
 class SendMessageRequest(BaseModel):
+    """Request model for sending a message to the AI.
+
+    Attributes:
+        user_id: Unique identifier for the user.
+        message: The message text to send.
+
+    """
+
     user_id: str
     message: str
 
 
 class SendMessageResponse(BaseModel):
+    """Response model for sending a message.
+
+    Attributes:
+        response: The AI's response text.
+
+    """
+
     response: str
 
 
 class ConversationHistoryResponse(BaseModel):
+    """Response model for conversation history.
+
+    Attributes:
+        user_id: The user whose history is returned.
+        messages: List of message objects in the conversation.
+
+    """
+
     user_id: str
-    messages: list[Message]
+    messages: list[MessageImpl]
 
 
 class ClearConversationResponse(BaseModel):
+    """Response model for clearing conversation.
+
+    Attributes:
+        user_id: The user whose conversation was cleared.
+        success: Whether the operation succeeded.
+
+    """
+
     user_id: str
     success: bool
 
 
 class AuthUrlResponse(BaseModel):
+    """Response model for OAuth authentication URL.
+
+    Attributes:
+        auth_url: The URL to redirect user to for OAuth authorization.
+
+    """
+
     auth_url: str
 
 
 class AuthCallbackRequest(BaseModel):
+    """Request model for OAuth callback with API key.
+
+    Attributes:
+        user_id: Unique identifier for the user.
+        code: Authorization code from Google.
+        api_key: Gemini API key provided by user.
+
+    """
+
     user_id: str
     code: str
     api_key: str
 
 
 class AuthCallbackResponse(BaseModel):
+    """Response model for OAuth callback.
+
+    Attributes:
+        user_id: The authenticated user's ID.
+        status: Status of the authentication operation.
+
+    """
+
     user_id: str
     status: str
 
@@ -101,10 +163,7 @@ def get_oauth_manager() -> OAuthManager:
     # Fall back to file-based credentials (local development)
     credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
     if not Path(credentials_file).exists():
-        msg = (
-            "OAuth credentials not configured. "
-            "Set GOOGLE_CREDENTIALS_B64 or GOOGLE_CREDENTIALS_FILE"
-        )
+        msg = "OAuth credentials not configured. Set GOOGLE_CREDENTIALS_B64 or GOOGLE_CREDENTIALS_FILE"
         raise HTTPException(
             status_code=500,
             detail=msg,
@@ -120,60 +179,63 @@ _mock_client_instance: AIClient | None = None
 _user_api_keys: dict[str, str] = {}
 
 
+class _MockClient:
+    """Mock AI client for testing."""
+
+    def __init__(self) -> None:
+        self.conversations: dict[str, list[MessageImpl]] = {}
+
+    def send_message(self, user_id: str, message: str) -> str:
+        if not user_id:
+            msg = "user_id cannot be empty"
+            raise ValueError(msg)
+        if not message:
+            msg = "message cannot be empty"
+            raise ValueError(msg)
+
+        response = f"Mock response to: {message}"
+
+        if user_id not in self.conversations:
+            self.conversations[user_id] = []
+
+        self.conversations[user_id].append(MessageImpl(role="user", content=message))
+        self.conversations[user_id].append(MessageImpl(role="assistant", content=response))
+
+        return response
+
+    def get_conversation_history(self, user_id: str) -> list[MessageImpl]:
+        if not user_id:
+            msg = "user_id cannot be empty"
+            raise ValueError(msg)
+        return self.conversations.get(user_id, [])
+
+    def clear_conversation(self, user_id: str) -> bool:
+        if not user_id:
+            msg = "user_id cannot be empty"
+            raise ValueError(msg)
+        if user_id in self.conversations:
+            del self.conversations[user_id]
+            return True
+        return False
+
+
 def _get_mock_client() -> AIClient:
     """Create a mock AI client for testing.
 
     Returns a singleton instance to maintain state across requests.
     """
-    global _mock_client_instance  # noqa: PLW0603
+    global _mock_client_instance
 
     if _mock_client_instance is not None:
         return _mock_client_instance
 
-    class MockClient:
-        def __init__(self) -> None:
-            self.conversations: dict[str, list[Message]] = {}
-
-        def send_message(self, user_id: str, message: str) -> str:
-            if not user_id:
-                msg = "user_id cannot be empty"
-                raise ValueError(msg)
-            if not message:
-                msg = "message cannot be empty"
-                raise ValueError(msg)
-
-            response = f"Mock response to: {message}"
-
-            if user_id not in self.conversations:
-                self.conversations[user_id] = []
-
-            self.conversations[user_id].append(Message(role="user", content=message))
-            self.conversations[user_id].append(Message(role="assistant", content=response))
-
-            return response
-
-        def get_conversation_history(self, user_id: str) -> list[Message]:
-            if not user_id:
-                msg = "user_id cannot be empty"
-                raise ValueError(msg)
-            return self.conversations.get(user_id, [])
-
-        def clear_conversation(self, user_id: str) -> bool:
-            if not user_id:
-                msg = "user_id cannot be empty"
-                raise ValueError(msg)
-            if user_id in self.conversations:
-                del self.conversations[user_id]
-                return True
-            return False
-
-    _mock_client_instance = MockClient()
+    _mock_client_instance = _MockClient()
     return _mock_client_instance
 
 
 def _reset_mock_client() -> None:
     """Reset the mock client instance (for testing)."""
-    global _mock_client_instance  # noqa: PLW0603
+    global _mock_client_instance
     _mock_client_instance = None
 
 
@@ -214,6 +276,7 @@ def _verify_user_authorization(authenticated_user_id: str, requested_user_id: st
 
     Raises:
         HTTPException: If user is not authorized to access the resource
+
     """
     if authenticated_user_id != requested_user_id:
         _raise_unauthorized()
@@ -227,6 +290,7 @@ def _revoke_user_api_key(user_id: str) -> bool:
 
     Returns:
         True if key was revoked, False if no key existed
+
     """
     if user_id in _user_api_keys:
         del _user_api_keys[user_id]
@@ -250,10 +314,10 @@ def _get_oauth_dep() -> OAuthManager:
 OAuthDep = Annotated[OAuthManager, Depends(_get_oauth_dep)]
 
 
-@router.post("/chat", response_model=SendMessageResponse)
+@router.post("/chat")
 async def send_message(
     request: SendMessageRequest,
-    authenticated_user_id: str = Query(..., description="Authenticated user ID from OAuth"),
+    authenticated_user_id: Annotated[str, Query(description="Authenticated user ID from OAuth")],
 ) -> SendMessageResponse:
     """Send a message to the AI and get a response.
 
@@ -266,6 +330,7 @@ async def send_message(
 
     Raises:
         HTTPException: If user is not authenticated or not authorized
+
     """
     try:
         # Verify user is accessing their own resources
@@ -292,10 +357,10 @@ async def send_message(
         raise HTTPException(status_code=500, detail=f"Error sending message: {e!s}") from e
 
 
-@router.get("/history/{user_id}", response_model=ConversationHistoryResponse)
+@router.get("/history/{user_id}")
 async def get_conversation_history(
     user_id: str,
-    authenticated_user_id: str = Query(..., description="Authenticated user ID from OAuth"),
+    authenticated_user_id: Annotated[str, Query(description="Authenticated user ID from OAuth")],
 ) -> ConversationHistoryResponse:
     """Retrieve conversation history for a user.
 
@@ -308,6 +373,7 @@ async def get_conversation_history(
 
     Raises:
         HTTPException: If user is not authorized to access this history
+
     """
     try:
         # Verify user is accessing their own history
@@ -333,10 +399,10 @@ async def get_conversation_history(
         raise HTTPException(status_code=500, detail=f"Error fetching history: {e!s}") from e
 
 
-@router.delete("/history/{user_id}", response_model=ClearConversationResponse)
+@router.delete("/history/{user_id}")
 async def clear_conversation(
     user_id: str,
-    authenticated_user_id: str = Query(..., description="Authenticated user ID from OAuth"),
+    authenticated_user_id: Annotated[str, Query(description="Authenticated user ID from OAuth")],
 ) -> ClearConversationResponse:
     """Clear conversation history for a user.
 
@@ -349,6 +415,7 @@ async def clear_conversation(
 
     Raises:
         HTTPException: If user is not authorized to clear this history
+
     """
     try:
         # Verify user is clearing their own history
@@ -374,10 +441,10 @@ async def clear_conversation(
         raise HTTPException(status_code=500, detail=f"Error clearing conversation: {e!s}") from e
 
 
-@router.get("/auth/login", response_model=AuthUrlResponse)
+@router.get("/auth/login")
 async def get_auth_url(
     oauth_manager: OAuthDep,
-    user_id: str = Query(..., description="Unique user identifier"),
+    user_id: Annotated[str, Query(description="Unique user identifier")],
 ) -> AuthUrlResponse:
     """Get OAuth authorization URL for user authentication."""
     try:
@@ -395,9 +462,9 @@ async def get_auth_url(
 @router.get("/auth/callback")
 async def handle_auth_callback_get(
     oauth_manager: OAuthDep,
-    user_id: str = Query(..., description="User ID from auth/login request"),
-    code: str = Query(..., description="Authorization code from Google"),
-    state: str = Query(None, description="State parameter from Google"),
+    user_id: Annotated[str, Query(description="User ID from auth/login request")],
+    code: Annotated[str, Query(description="Authorization code from Google")],
+    _state: Annotated[str | None, Query(description="State parameter from Google")] = None,
 ) -> dict[str, str]:
     """Handle OAuth callback redirect from Google.
 
@@ -416,16 +483,16 @@ async def handle_auth_callback_get(
 
     Raises:
         HTTPException: If authentication fails or parameters are invalid
-    """
-    try:
-        if not user_id:
-            _raise_missing_parameter("user_id")
-        if not code:
-            _raise_missing_parameter("code")
 
+    """
+    if not user_id:
+        _raise_missing_parameter("user_id")
+    if not code:
+        _raise_missing_parameter("code")
+
+    try:
         # Handle OAuth callback and store OAuth credentials
         oauth_manager.handle_callback(user_id, code)
-
         logger.info("User %s OAuth authenticated successfully", user_id)
         return {
             "status": "oauth_authenticated",
@@ -433,8 +500,6 @@ async def handle_auth_callback_get(
             "message": "OAuth authentication successful. Now provide your Gemini API key.",
             "next_step": "POST /auth/api-key with your Gemini API key",
         }
-    except HTTPException:
-        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -442,7 +507,7 @@ async def handle_auth_callback_get(
         raise HTTPException(status_code=500, detail=f"Error during authentication: {e!s}") from e
 
 
-@router.post("/auth/callback", response_model=AuthCallbackResponse)
+@router.post("/auth/callback")
 async def handle_auth_callback_post(
     oauth_manager: OAuthDep,
     request: AuthCallbackRequest,
@@ -462,6 +527,7 @@ async def handle_auth_callback_post(
 
     Raises:
         HTTPException: If authentication fails or parameters are invalid
+
     """
     try:
         user_id = request.user_id
@@ -495,8 +561,8 @@ async def handle_auth_callback_post(
 
 @router.post("/auth/api-key")
 async def store_api_key(
-    user_id: str = Query(..., description="User ID"),
-    api_key: str = Query(..., description="Gemini API key"),
+    user_id: Annotated[str, Query(description="User ID")],
+    api_key: Annotated[str, Query(description="Gemini API key")],
 ) -> dict[str, str]:
     """Store API key for an authenticated user.
 
@@ -512,13 +578,14 @@ async def store_api_key(
 
     Raises:
         HTTPException: If parameters are invalid
-    """
-    try:
-        if not user_id:
-            _raise_missing_parameter("user_id")
-        if not api_key:
-            _raise_missing_parameter("api_key")
 
+    """
+    if not user_id:
+        _raise_missing_parameter("user_id")
+    if not api_key:
+        _raise_missing_parameter("api_key")
+
+    try:
         # Store user's API key (isolated per user)
         _store_user_api_key(user_id, api_key)
 
@@ -528,8 +595,6 @@ async def store_api_key(
             "user_id": user_id,
             "message": "API key stored successfully. You can now use the chat service.",
         }
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error storing API key")
         raise HTTPException(status_code=500, detail=f"Error storing API key: {e!s}") from e
@@ -545,7 +610,7 @@ def _raise_not_found() -> None:
 async def revoke_auth(
     user_id: str,
     oauth_manager: OAuthDep,
-    authenticated_user_id: str = Query(..., description="Authenticated user ID from OAuth"),
+    authenticated_user_id: Annotated[str, Query(description="Authenticated user ID from OAuth")],
 ) -> dict[str, str]:
     """Revoke OAuth credentials and API key for a user.
 
@@ -559,6 +624,7 @@ async def revoke_auth(
 
     Raises:
         HTTPException: If user is not authorized or credentials don't exist
+
     """
     try:
         # Verify user is revoking their own credentials

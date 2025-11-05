@@ -1,3 +1,9 @@
+"""FastAPI routes for mail client service with mock and real Gmail integration.
+
+This module defines all API endpoints for the mail client service,
+providing message retrieval, deletion, and read status management.
+"""
+
 import logging
 from typing import Annotated
 
@@ -28,18 +34,32 @@ def get_mail_client() -> Client:
         raise
 
 
-def _get_mock_client() -> Client:
+def _get_mock_client() -> Client:  # noqa: C901
     """Create a mock client for testing purposes."""
 
     class MockMessage:
-        def __init__(self, id: str, subject: str, from_: str, body: str) -> None:
-            self.id = id
+        """Mock message object for testing."""
+
+        def __init__(self, msg_id: str, subject: str, from_: str, body: str) -> None:
+            """Initialize a mock message.
+
+            Args:
+                msg_id: Message ID.
+                subject: Message subject.
+                from_: Message sender.
+                body: Message body.
+
+            """
+            self.id = msg_id
             self.subject = subject
             self.from_ = from_
             self.body = body
 
     class MockClient:
+        """Mock mail client for testing."""
+
         def __init__(self) -> None:
+            """Initialize with sample messages."""
             self.messages = [
                 MockMessage("1", "Test Email 1", "test1@example.com", "This is test message 1"),
                 MockMessage("2", "Test Email 2", "test2@example.com", "This is test message 2"),
@@ -47,9 +67,11 @@ def _get_mock_client() -> Client:
             ]
 
         def get_messages(self, max_results: int = 10) -> list[MockMessage]:
+            """Get messages up to max_results."""
             return self.messages[:max_results]
 
         def get_message(self, message_id: str) -> MockMessage:
+            """Get a single message by ID."""
             for msg in self.messages:
                 if msg.id == message_id:
                     return msg
@@ -57,13 +79,15 @@ def _get_mock_client() -> Client:
             raise KeyError(error_msg)
 
         def delete_message(self, message_id: str) -> bool:
+            """Delete a message by ID."""
             for i, msg in enumerate(self.messages):
                 if msg.id == message_id:
                     del self.messages[i]
                     return True
             return False
 
-        def mark_as_read(self, message_id: str) -> bool:
+        def mark_as_read(self, _message_id: str) -> bool:
+            """Mark a message as read."""
             return True
 
     return MockClient()
@@ -91,9 +115,11 @@ async def get_messages(client: ClientDep) -> dict[str, list[dict[str, str]]]:
                 for msg in messages
             ],
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Error fetching messages")
-        raise HTTPException(status_code=500, detail=f"Error fetching messages: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Error fetching messages: {e!s}") from e
 
 
 @router.get("/messages/{message_id}")
@@ -109,10 +135,12 @@ async def get_message(message_id: str, client: ClientDep) -> dict[str, dict[str,
                 "body": message.body,
             },
         }
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Message not found")
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail="Message not found") from e
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/messages/{message_id}")
@@ -120,13 +148,17 @@ async def delete_message(message_id: str, client: ClientDep) -> dict[str, str]:
     """Delete a message by ID."""
     try:
         success = client.delete_message(message_id)
-        if success:
-            return {"message_id": message_id, "status": "Deleted"}
-        raise HTTPException(status_code=500, detail="Failed to delete message")
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Message not found")
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail="Message not found") from e
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+    if success:
+        return {"message_id": message_id, "status": "Deleted"}
+    msg = "Failed to delete message"
+    raise HTTPException(status_code=500, detail=msg)
 
 
 @router.post("/messages/{message_id}/mark-as-read")
@@ -134,10 +166,14 @@ async def mark_message_as_read(message_id: str, client: ClientDep) -> dict[str, 
     """Mark a message as read by ID."""
     try:
         success = client.mark_as_read(message_id)
-        if success:
-            return {"message_id": message_id, "status": "Marked as read"}
-        raise HTTPException(status_code=500, detail="Failed to mark message as read")
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Message not found")
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail="Message not found") from e
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+    if success:
+        return {"message_id": message_id, "status": "Marked as read"}
+    msg = "Failed to mark message as read"
+    raise HTTPException(status_code=500, detail=msg)

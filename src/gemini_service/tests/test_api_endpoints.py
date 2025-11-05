@@ -2,7 +2,8 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
-from gemini_api import AIClient, Message
+from gemini_api.client import AIClient
+from gemini_impl.message import MessageImpl
 
 from gemini_service.api import (
     _get_mock_client,
@@ -16,17 +17,23 @@ from gemini_service.main import app
 
 
 @pytest.fixture
-def mock_client():
+def mock_client() -> MagicMock:
+    """Fixture providing a mock AIClient."""
     return MagicMock(spec=AIClient)
 
 
 @pytest.fixture
-def mock_oauth_manager():
+def mock_oauth_manager() -> MagicMock:
+    """Fixture providing a mock OAuthManager."""
     return MagicMock()
 
 
 @pytest.fixture
-def test_client(mock_client, mock_oauth_manager):
+def test_client(
+    mock_client: MagicMock,
+    mock_oauth_manager: MagicMock,
+) -> TestClient:
+    """Fixture providing a TestClient with mocked dependencies."""
     app.dependency_overrides[get_ai_client] = lambda: mock_client
     app.dependency_overrides[_get_oauth_dep] = lambda: mock_oauth_manager
     yield TestClient(app)
@@ -35,7 +42,7 @@ def test_client(mock_client, mock_oauth_manager):
 
 
 @pytest.fixture(autouse=True)
-def setup_api_keys():
+def setup_api_keys() -> None:
     """Reset API keys before each test."""
     _reset_user_api_keys()
     # Store a test API key for user123
@@ -111,8 +118,8 @@ class TestHistoryEndpoints:
     @pytest.mark.skip(reason="Requires real Gemini API key for dependency injection")
     def test_get_conversation_history_success(self, test_client, mock_client):
         messages = [
-            Message(role="user", content="Hello"),
-            Message(role="assistant", content="Hi there"),
+            MessageImpl(role="user", content="Hello"),
+            MessageImpl(role="assistant", content="Hi there"),
         ]
         mock_client.get_conversation_history.return_value = messages
 
@@ -194,9 +201,7 @@ class TestHistoryEndpoints:
 
 class TestOAuthEndpoints:
     def test_get_auth_url_success(self, test_client, mock_oauth_manager):
-        mock_oauth_manager.get_authorization_url.return_value = (
-            "https://accounts.google.com/o/oauth2/auth?..."
-        )
+        mock_oauth_manager.get_authorization_url.return_value = "https://accounts.google.com/o/oauth2/auth?..."
 
         response = test_client.get("/auth/login?user_id=user123")
 

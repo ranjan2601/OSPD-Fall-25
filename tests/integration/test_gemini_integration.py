@@ -9,7 +9,6 @@ Tests component interactions with mocked dependencies to verify:
 - Error handling
 """
 
-import os
 import sqlite3
 import tempfile
 import uuid
@@ -17,8 +16,9 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gemini_api import AIClient, Message
+from gemini_api.client import AIClient
 from gemini_impl.client import GeminiClient
+from gemini_impl.message import MessageImpl
 from gemini_impl.oauth import OAuthManager
 
 # Mark all tests in this file as integration tests and for CI/CD
@@ -191,7 +191,7 @@ class TestGeminiClientConversationHistory:
                 history = client.get_conversation_history(unique_user_id)
 
                 assert len(history) == 6  # 3 user + 3 assistant messages
-                assert all(isinstance(msg, Message) for msg in history)
+                assert all(isinstance(msg, MessageImpl) for msg in history)
 
     def test_message_order_preservation(
         self,

@@ -157,7 +157,7 @@ class GmailClient(mail_client_api.Client):
                 scopes=self.SCOPES,
             )
             creds.refresh(Request())  # type: ignore[no-untyped-call]
-            return creds  # noqa: TRY300
+            return creds
         except (GoogleAuthError, RefreshError, OSError, ValueError):
             return None
 

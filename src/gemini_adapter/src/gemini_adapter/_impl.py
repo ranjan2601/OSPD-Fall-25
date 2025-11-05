@@ -1,6 +1,7 @@
 """Adapter implementation connecting abstract API to Gemini FastAPI service."""
 
-from gemini_api import AIClient, Message
+from gemini_api.client import AIClient
+from gemini_impl.message import MessageImpl
 from gemini_service_api_client.gemini_ai_service_client import Client as GeminiHTTPClient
 
 
@@ -47,14 +48,14 @@ class GeminiServiceAdapter(AIClient):
         )
         return response.response
 
-    def get_conversation_history(self, user_id: str) -> list[Message]:
+    def get_conversation_history(self, user_id: str) -> list[MessageImpl]:
         """Retrieve conversation history via the Gemini FastAPI service.
 
         Args:
             user_id: Unique identifier for the user.
 
         Returns:
-            A list of Message objects representing the conversation history.
+            A list of MessageImpl objects representing the conversation history.
 
         Raises:
             ValueError: If user_id is empty.
@@ -69,7 +70,7 @@ class GeminiServiceAdapter(AIClient):
         )
         if hasattr(response, "messages") and response.messages:
             return [
-                Message(
+                MessageImpl(
                     role=msg.role,
                     content=msg.content,
                 )

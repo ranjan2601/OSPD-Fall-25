@@ -1,7 +1,8 @@
 """Tests for the abstract AI chat client interface."""
 
 import pytest
-from gemini_api.client import AIClient, Message
+from gemini_api.client import AIClient
+from gemini_impl.message import MessageImpl
 
 
 class ConcreteAIClient(AIClient):
@@ -9,7 +10,7 @@ class ConcreteAIClient(AIClient):
 
     def __init__(self) -> None:
         """Initialize with empty conversation storage."""
-        self.conversations: dict[str, list[Message]] = {}
+        self.conversations: dict[str, list[MessageImpl]] = {}
 
     def send_message(self, user_id: str, message: str) -> str:
         """Send a message and return a mock response."""
@@ -23,13 +24,13 @@ class ConcreteAIClient(AIClient):
         if user_id not in self.conversations:
             self.conversations[user_id] = []
 
-        self.conversations[user_id].append(Message(role="user", content=message))
+        self.conversations[user_id].append(MessageImpl(role="user", content=message))
         response = f"Response to: {message}"
-        self.conversations[user_id].append(Message(role="assistant", content=response))
+        self.conversations[user_id].append(MessageImpl(role="assistant", content=response))
 
         return response
 
-    def get_conversation_history(self, user_id: str) -> list[Message]:
+    def get_conversation_history(self, user_id: str) -> list[MessageImpl]:
         """Return the conversation history for a user."""
         if not user_id:
             msg = "user_id cannot be empty"
@@ -57,17 +58,17 @@ class TestAIClientAbstractMethods:
 
 
 class TestMessage:
-    """Test the Message dataclass."""
+    """Test the MessageImpl concrete implementation."""
 
     def test_message_creation(self) -> None:
-        """Test creating a Message instance."""
-        msg = Message(role="user", content="Hello")
+        """Test creating a MessageImpl instance."""
+        msg = MessageImpl(role="user", content="Hello")
         assert msg.role == "user"
         assert msg.content == "Hello"
 
     def test_message_assistant_role(self) -> None:
         """Test creating an assistant message."""
-        msg = Message(role="assistant", content="Hi there!")
+        msg = MessageImpl(role="assistant", content="Hi there!")
         assert msg.role == "assistant"
         assert msg.content == "Hi there!"
 

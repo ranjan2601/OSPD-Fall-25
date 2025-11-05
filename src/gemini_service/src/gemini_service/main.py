@@ -1,3 +1,9 @@
+"""Main FastAPI application for Gemini AI Service.
+
+This module initializes and configures the FastAPI application,
+loads environment variables, and sets up all API routes.
+"""
+
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -21,9 +27,11 @@ app.include_router(router)
 
 @app.get("/")
 def read_root() -> dict[str, str]:
+    """Root endpoint returning service status."""
     return {"message": "Gemini AI Service is running"}
 
 
 @app.get("/health")
 def health_check() -> dict[str, str]:
+    """Health check endpoint for monitoring service availability."""
     return {"status": "healthy"}

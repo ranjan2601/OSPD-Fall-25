@@ -41,24 +41,20 @@ line-length = 130 # high for top level due to tests
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["ALL"]
 ignore = [
   "D203", # `incorrect-blank-line-before-class` (D203) and `no-blank-line-before-class` (D211) are incompatible. Ignoring `incorrect-blank-line-before-class`.
   "D213", # `multi-line-summary-first-line` (D212) and `multi-line-summary-second-line` (D213) are incompatible. Ignoring `multi-line-summary-second-line`.
   "S101", # Use of `assert` detected --> Asserts are good in our opinion. Tests use asserts profusely.
   "PLW0603", # Using global statement - needed for singleton pattern in tests
+  "TRY300", # Style preference: code properly handles exceptions
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"**/test_*.py" = ["TRY300", "BLE001", "ANN401", "SLF001", "E501", "S105", "ARG001", "ARG002", "S106", "INP001", "PLC0415", "PLR2004", "ANN002", "ANN003", "ANN202", "TRY002", "EM101", "ERA001", "D205", "D100", "I001", "F401", "D212", "PLR0402", "W291", "PT018", "E401", "F811", "TRY003", "D200", "ANN001"]
-"src/gemini_impl/**/*.py" = ["ANN401"]
-"src/mail_client_service/**/*.py" = ["D100", "D101", "D102", "D103", "D104", "D107", "ANN001", "ANN201", "E402", "A002", "ARG001", "ARG002", "BLE001", "B904", "TRY300", "TRY301", "PLC0415", "FBT001", "FBT002", "S110", "C901"]
-"src/gemini_service/**/*.py" = ["D100", "D101", "D102", "D103", "D104", "D107", "ANN001", "ANN201", "E402", "A002", "ARG001", "ARG002", "BLE001", "B904", "TRY300", "TRY301", "PLC0415", "FBT001", "FBT002", "S110", "G004", "PLW0602"]
+# Test files - ignore docstrings and type annotation requirements
+"**/test_*.py" = ["D100", "D101", "D102", "D103", "ANN001", "ANN002", "ANN003", "ANN201", "ANN202"]
+# Auto-generated clients - ignore all linting rules
 "src/mail_client_service_client/**/*.py" = ["ALL"]
 "src/gemini_service_api_client/**/*.py" = ["ALL"]
-"tests/e2e/**/*.py" = ["ANN001", "ANN201", "PLR2004", "T201", "D100"]
-"tests/integration/**/*.py" = ["E402", "D100", "PLR2004", "ANN001"]
-"tests/**/*.py" = ["D100"]
 
 [tool.mypy]
 strict = true
@@ -66,28 +62,8 @@ explicit_package_bases = true # Required for src layout
 mypy_path = ["src/mail_client_api/src", "src/gmail_client_impl/src", "src/mail_client_service/src", "src/mail_client_service_client/src", "src/mail_client_adapter/src", "src/gemini_api/src", "src/gemini_impl/src", "src/gemini_service/src", "src/gemini_service_api_client/src", "src/gemini_adapter/src"]
 ignore_missing_imports = false
 warn_unused_ignores = false
-exclude = ["tests/", ".*/tests/.*", "src/mail_client_service_client/", "src/gemini_service_api_client/", "src/gemini_adapter/"]
+exclude = ["tests/", ".*/tests/.*", "src/mail_client_service_client/", "src/gemini_service_api_client/"]
 
-# Allow untyped imports for specific modules
-[[tool.mypy.overrides]]
-module = "gemini_impl.client"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "gemini_impl.oauth"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "gemini_service.api"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "gmail_client_impl.gmail_impl"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "mail_client_service.api"
-ignore_errors = true
 
 [tool.pytest.ini_options]
 pythonpath = [
@@ -111,7 +87,7 @@ source = ["src"]
 omit = ["*/tests/*", "*/__main__.py", "*/generated/*", "*/mail_client_service_api_client/*", "*/gemini_service_api_client/*", "*/mail_client_service/*", "*/mail_client_adapter/*", "*/gmail_client_impl/*"]
 
 [tool.coverage.report]
-fail_under = 70 # Justification: CircleCI can only test modules without external services; full test suite (with service running) achieves 85%+
+fail_under = 80 # Justification: CircleCI can only test modules without external services; full test suite (with service running) achieves 85%+
 exclude_lines = [
     "pragma: no cover",
     "raise NotImplementedError",

@@ -5,7 +5,9 @@ from pathlib import Path
 from typing import Any
 
 import google.generativeai as genai
-from gemini_api import AIClient, Message
+from gemini_api.client import AIClient, Message
+
+from gemini_impl.message import MessageImpl
 
 
 class GeminiClient(AIClient):
@@ -146,7 +148,7 @@ class GeminiClient(AIClient):
             rows = cursor.fetchall()
 
         for role, content in rows:
-            messages.append(Message(role=role, content=content))
+            messages.append(MessageImpl(role=role, content=content))
 
         return messages
 

@@ -154,7 +154,7 @@ class GmailMessage(message.Message):
                 else:
                     subject_str += part
 
-            return subject_str if subject_str else subject_header  # noqa: TRY300
+            return subject_str if subject_str else subject_header
         except (UnicodeDecodeError, LookupError, ValueError, AttributeError):
             return subject_header
 

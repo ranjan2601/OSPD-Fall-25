@@ -3,7 +3,8 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gemini_api import AIClient, Message
+from gemini_api.client import AIClient
+from gemini_impl.message import MessageImpl
 from gemini_adapter import GeminiServiceAdapter
 
 
@@ -103,8 +104,8 @@ class TestGetConversationHistory:
             assert history[0].content == "Hello"
             assert history[1].role == "assistant"
             assert history[1].content == "Hi there"
-            assert isinstance(history[0], Message)
-            assert isinstance(history[1], Message)
+            assert isinstance(history[0], MessageImpl)
+            assert isinstance(history[1], MessageImpl)
 
     def test_get_history_empty_list(self) -> None:
         """Test getting empty conversation history."""

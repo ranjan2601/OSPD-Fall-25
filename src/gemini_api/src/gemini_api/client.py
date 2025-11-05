@@ -5,21 +5,22 @@ must follow, independent of the underlying AI provider (e.g., Gemini, OpenAI).
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 
 
-@dataclass
-class Message:
-    """Represents a single message in a conversation.
+class Message(ABC):
+    """Abstract base class representing a message in a conversation."""
 
-    Attributes:
-        role: The role of the message sender ("user" or "assistant").
-        content: The text content of the message.
+    @property
+    @abstractmethod
+    def role(self) -> str:
+        """Return the role of the message sender ("user" or "assistant")."""
+        raise NotImplementedError
 
-    """
-
-    role: str
-    content: str
+    @property
+    @abstractmethod
+    def content(self) -> str:
+        """Return the text content of the message."""
+        raise NotImplementedError
 
 
 class AIClient(ABC):
