@@ -48,7 +48,7 @@ class AIClient(ABC):
         """
 
     @abstractmethod
-    def get_conversation_history(self, user_id: str) -> list[Message]:
+    def get_conversation_history(self, user_id: str) -> list["Message"]:
         """Retrieve the conversation history for a user.
 
         Args:

@@ -5,15 +5,16 @@ chat operations, conversation management, and OAuth authentication flows.
 """
 
 import base64
+import binascii
 import json
 import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from gemini_api.client import AIClient
+from gemini_api.client import AIClient, Message
 from gemini_impl.client import GeminiClient
 from gemini_impl.message import MessageImpl
 from gemini_impl.oauth import OAuthManager
@@ -155,7 +156,7 @@ def get_oauth_manager() -> OAuthManager:
                 credentials_file = temp_file.name
                 logger.info("Using base64-encoded OAuth credentials from environment")
                 return OAuthManager(credentials_file=credentials_file, db_path=db_path)
-        except (base64.binascii.Error, json.JSONDecodeError, ValueError) as e:
+        except (binascii.Error, json.JSONDecodeError, ValueError) as e:
             logger.exception("Failed to decode GOOGLE_CREDENTIALS_B64")
             msg = "Invalid OAuth credentials in GOOGLE_CREDENTIALS_B64"
             raise HTTPException(status_code=500, detail=msg) from e
@@ -179,7 +180,7 @@ _mock_client_instance: AIClient | None = None
 _user_api_keys: dict[str, str] = {}
 
 
-class _MockClient:
+class _MockClient(AIClient):
     """Mock AI client for testing."""
 
     def __init__(self) -> None:
@@ -203,11 +204,11 @@ class _MockClient:
 
         return response
 
-    def get_conversation_history(self, user_id: str) -> list[MessageImpl]:
+    def get_conversation_history(self, user_id: str) -> list[Message]:
         if not user_id:
             msg = "user_id cannot be empty"
             raise ValueError(msg)
-        return self.conversations.get(user_id, [])
+        return cast(list[Message], self.conversations.get(user_id, []))
 
     def clear_conversation(self, user_id: str) -> bool:
         if not user_id:
@@ -340,6 +341,7 @@ async def send_message(
         api_key = _get_user_api_key(request.user_id)
         if not api_key:
             _raise_missing_api_key()
+            return SendMessageResponse(response="")  # Unreachable, but satisfies type checker
 
         # Create client with user's API key (use /data directory for persistence)
         data_dir = os.getenv("GEMINI_DB_PATH", "conversations.db").rsplit("/", 1)[0]
@@ -383,13 +385,14 @@ async def get_conversation_history(
         api_key = _get_user_api_key(user_id)
         if not api_key:
             _raise_missing_api_key()
+            return ConversationHistoryResponse(user_id=user_id, messages=[])  # Unreachable, but satisfies type checker
 
         data_dir = os.getenv("GEMINI_DB_PATH", "conversations.db").rsplit("/", 1)[0]
         db_path = f"{data_dir}/conversations_{user_id}.db"
         client = GeminiClient(api_key=api_key, db_path=db_path)
 
         messages = client.get_conversation_history(user_id)
-        return ConversationHistoryResponse(user_id=user_id, messages=messages)
+        return ConversationHistoryResponse(user_id=user_id, messages=cast(list[MessageImpl], messages))
     except HTTPException:
         raise
     except ValueError as e:
@@ -425,6 +428,7 @@ async def clear_conversation(
         api_key = _get_user_api_key(user_id)
         if not api_key:
             _raise_missing_api_key()
+            return ClearConversationResponse(user_id=user_id, success=False)  # Unreachable, but satisfies type checker
 
         data_dir = os.getenv("GEMINI_DB_PATH", "conversations.db").rsplit("/", 1)[0]
         db_path = f"{data_dir}/conversations_{user_id}.db"

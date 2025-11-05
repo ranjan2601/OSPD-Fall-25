@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Template repository for a mail client"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "types-requests>=2.32.4.20250913",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -62,7 +64,7 @@ explicit_package_bases = true # Required for src layout
 mypy_path = ["src/mail_client_api/src", "src/gmail_client_impl/src", "src/mail_client_service/src", "src/mail_client_service_client/src", "src/mail_client_adapter/src", "src/gemini_api/src", "src/gemini_impl/src", "src/gemini_service/src", "src/gemini_service_api_client/src", "src/gemini_adapter/src"]
 ignore_missing_imports = false
 warn_unused_ignores = false
-exclude = ["tests/", ".*/tests/.*", "src/mail_client_service_client/", "src/gemini_service_api_client/"]
+exclude = ["tests/", ".*/tests/.*", "src/mail_client_service_client/", "src/gemini_service_api_client/", "src/gemini_impl/", "src/mail_client_service/", "src/gemini_adapter/", "src/test_app.py"]
 
 
 [tool.pytest.ini_options]

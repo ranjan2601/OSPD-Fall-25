@@ -55,7 +55,7 @@ def _get_mock_client() -> Client:  # noqa: C901
             self.from_ = from_
             self.body = body
 
-    class MockClient:
+    class MockClient(Client):
         """Mock mail client for testing."""
 
         def __init__(self) -> None:
