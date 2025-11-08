@@ -304,6 +304,23 @@ def _reset_user_api_keys() -> None:
     _user_api_keys.clear()
 
 
+def _get_client_class() -> type[AIClient]:
+    """Get the AI client class to instantiate (configurable via environment)."""
+    client_type = os.getenv("AI_CLIENT_TYPE", "gemini")
+    if client_type == "gemini":
+        return GeminiClient
+    msg = f"Unknown AI client type: {client_type}"
+    raise ValueError(msg)
+
+
+def _create_user_client(user_id: str, api_key: str) -> AIClient:
+    """Create a client instance for a specific user."""
+    client_class = _get_client_class()
+    data_dir = os.getenv("GEMINI_DB_PATH", "conversations.db").rsplit("/", 1)[0]
+    db_path = f"{data_dir}/conversations_{user_id}.db"
+    return client_class(api_key=api_key, db_path=db_path)  # type: ignore[call-arg]
+
+
 ClientDep = Annotated[AIClient, Depends(get_ai_client)]
 
 
@@ -343,10 +360,8 @@ async def send_message(
             _raise_missing_api_key()
             return SendMessageResponse(response="")  # Unreachable, but satisfies type checker
 
-        # Create client with user's API key (use /data directory for persistence)
-        data_dir = os.getenv("GEMINI_DB_PATH", "conversations.db").rsplit("/", 1)[0]
-        db_path = f"{data_dir}/conversations_{request.user_id}.db"
-        client = GeminiClient(api_key=api_key, db_path=db_path)
+        # Create client using factory (allows swapping implementations)
+        client = _create_user_client(request.user_id, api_key)
 
         response = client.send_message(request.user_id, request.message)
         return SendMessageResponse(response=response)
@@ -387,9 +402,8 @@ async def get_conversation_history(
             _raise_missing_api_key()
             return ConversationHistoryResponse(user_id=user_id, messages=[])  # Unreachable, but satisfies type checker
 
-        data_dir = os.getenv("GEMINI_DB_PATH", "conversations.db").rsplit("/", 1)[0]
-        db_path = f"{data_dir}/conversations_{user_id}.db"
-        client = GeminiClient(api_key=api_key, db_path=db_path)
+        # Create client using factory (allows swapping implementations)
+        client = _create_user_client(user_id, api_key)
 
         messages = client.get_conversation_history(user_id)
         return ConversationHistoryResponse(user_id=user_id, messages=cast(list[MessageImpl], messages))
@@ -430,9 +444,8 @@ async def clear_conversation(
             _raise_missing_api_key()
             return ClearConversationResponse(user_id=user_id, success=False)  # Unreachable, but satisfies type checker
 
-        data_dir = os.getenv("GEMINI_DB_PATH", "conversations.db").rsplit("/", 1)[0]
-        db_path = f"{data_dir}/conversations_{user_id}.db"
-        client = GeminiClient(api_key=api_key, db_path=db_path)
+        # Create client using factory (allows swapping implementations)
+        client = _create_user_client(user_id, api_key)
 
         success = client.clear_conversation(user_id)
         return ClearConversationResponse(user_id=user_id, success=success)
