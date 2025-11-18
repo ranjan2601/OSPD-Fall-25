@@ -97,6 +97,7 @@ This allows switching implementations without changing client code.
 
 ## Component Communication
 
+### Mail Client Architecture
 ```
 ┌─────────────────────────────────────┐
 │     mail_client_api (Contract)      │
@@ -112,6 +113,28 @@ This allows switching implementations without changing client code.
 │ - Direct   │  │  - ServiceClient   │
 │   Gmail    │  │  - Mock fallback   │
 │   API      │  │                    │
+└────────────┘  └────────────────────┘
+```
+
+### AI Chat Architecture (HW2)
+```
+┌──────────────────────────────────┐
+│    gemini_api (Contract)         │
+│  - AIClient ABC                  │
+│  - Message ABC                   │
+└──────────┬───────────────────────┘
+           │
+      ┌────┴──────┐
+      │           │
+┌─────▼──────┐  ┌─▼──────────────────┐
+│ gemini_impl│  │  service (FastAPI) │
+│            │  │  - REST endpoints  │
+│ - Gemini   │  │  - OAuth handler   │
+│   API      │  │  - API key mgmt    │
+│ - SQLite   │  │  - Mock fallback   │
+│   storage  │  │                    │
+│ - OAuth    │  │                    │
+│   manager  │  │                    │
 └────────────┘  └────────────────────┘
 ```
 
