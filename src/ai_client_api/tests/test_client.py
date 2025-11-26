@@ -1,7 +1,7 @@
 """Tests for the abstract AI chat client interface."""
 
 import pytest
-from gemini_api.client import AIClient
+from ai_client_api.client import AIClient
 from gemini_impl.message import MessageImpl
 
 

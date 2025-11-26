@@ -2,7 +2,8 @@
 
 from dataclasses import dataclass
 
-from gemini_api.client import Message
+import ai_client_api
+from ai_client_api.client import Message
 
 
 @dataclass
@@ -26,3 +27,22 @@ class MessageImpl(Message):
     def content(self) -> str:
         """Return the message content."""
         return self._content
+
+
+def get_message_impl(role: str, content: str) -> ai_client_api.Message:
+    """Return an instance of the concrete MessageImpl implementation.
+
+    Args:
+        role: The role of the message sender ("user" or "assistant").
+        content: The text content of the message.
+
+    Returns:
+        Message: A MessageImpl instance.
+
+    """
+    return MessageImpl(role=role, content=content)
+
+
+def register() -> None:
+    """Register the Gemini message implementation with the AI client API."""
+    ai_client_api.get_message = get_message_impl

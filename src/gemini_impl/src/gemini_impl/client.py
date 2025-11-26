@@ -4,8 +4,9 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+import ai_client_api
 import google.generativeai as genai
-from gemini_api.client import AIClient, Message
+from ai_client_api.client import AIClient, Message
 
 from gemini_impl.message import MessageImpl
 
@@ -191,3 +192,25 @@ class GeminiClient(AIClient):
                 (user_id, role, content),
             )
             conn.commit()
+
+
+def get_client_impl(
+    user_id: str, api_key: str, db_path: str = "conversations.db"
+) -> ai_client_api.AIClient:
+    """Return a configured GeminiClient instance.
+
+    Args:
+        user_id: Unique identifier for the user.
+        api_key: Google Gemini API key.
+        db_path: Path to SQLite database. Defaults to "conversations.db".
+
+    Returns:
+        AIClient: A GeminiClient instance.
+
+    """
+    return GeminiClient(api_key=api_key, db_path=db_path)
+
+
+def register() -> None:
+    """Register the Gemini client implementation with the AI client API."""
+    ai_client_api.get_client = get_client_impl

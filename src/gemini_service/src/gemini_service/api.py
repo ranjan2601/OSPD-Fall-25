@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from gemini_api.client import AIClient, Message
+from ai_client_api.client import AIClient, Message
 from gemini_impl.client import GeminiClient
 from gemini_impl.message import MessageImpl
 from gemini_impl.oauth import OAuthManager

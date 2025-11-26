@@ -77,3 +77,38 @@ class AIClient(ABC):
             ValueError: If user_id is empty.
 
         """
+
+
+def get_client(user_id: str, api_key: str, db_path: str = "conversations.db") -> AIClient:
+    """Return an instance of an AI chat client.
+
+    Args:
+        user_id: Unique identifier for the user.
+        api_key: API key for the AI service.
+        db_path: Path to the conversation database. Defaults to "conversations.db".
+
+    Returns:
+        AIClient: An instance conforming to the AIClient contract.
+
+    Raises:
+        NotImplementedError: If the function is not overridden by an implementation.
+
+    """
+    raise NotImplementedError
+
+
+def get_message(role: str, content: str) -> Message:
+    """Return an instance of a Message.
+
+    Args:
+        role: The role of the message sender ("user" or "assistant").
+        content: The text content of the message.
+
+    Returns:
+        Message: An instance conforming to the Message contract.
+
+    Raises:
+        NotImplementedError: If the function is not overridden by an implementation.
+
+    """
+    raise NotImplementedError

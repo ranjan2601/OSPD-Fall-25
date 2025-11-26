@@ -16,7 +16,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gemini_api.client import AIClient
+from ai_client_api.client import AIClient
 from gemini_impl.client import GeminiClient
 from gemini_impl.message import MessageImpl
 from gemini_impl.oauth import OAuthManager

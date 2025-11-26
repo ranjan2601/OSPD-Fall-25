@@ -8,13 +8,13 @@ requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn>=0.32.0",
-    "gemini-api",
+    "ai-client-api",
     "gemini-impl",
     "pydantic>=2.0.0",
 ]
 
 [tool.uv.sources]
-gemini-api = { workspace = true }
+ai-client-api = { workspace = true }
 gemini-impl = { workspace = true }
 
 [build-system]

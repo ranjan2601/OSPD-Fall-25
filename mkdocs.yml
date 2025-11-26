@@ -27,7 +27,7 @@ nav:
     - 'Mail Client API': 'api/mail_client_api.md'
     - 'Gmail Client Implementation': 'api/gmail_client_impl.md'
     - 'Mail Client FastAPI Service': 'api/mail_client_service.md'
-    - 'Gemini API': 'api/gemini_api.md'
+    - 'AI Client API': 'api/ai_client_api.md'
     - 'Gemini Implementation': 'api/gemini_impl.md'
     - 'Gemini FastAPI Service': 'api/gemini_service.md'
 
@@ -44,7 +44,7 @@ plugins:
             - src/mail_client_api/src
             - src/gmail_client_impl/src
             - src/mail_client_service/src
-            - src/gemini_api/src
+            - src/ai_client_api/src
             - src/gemini_impl/src
             - src/gemini_service/src
           options:

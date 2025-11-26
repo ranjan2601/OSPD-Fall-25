@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
-from gemini_api.client import AIClient
+from ai_client_api.client import AIClient
 from gemini_impl.message import MessageImpl
 
 from gemini_service.api import (
