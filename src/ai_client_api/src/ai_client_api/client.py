@@ -5,6 +5,7 @@ must follow, independent of the underlying AI provider (e.g., Gemini, OpenAI).
 """
 
 from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional
 
 
 class Message(ABC):
@@ -12,83 +13,91 @@ class Message(ABC):
 
     @property
     @abstractmethod
-    def role(self) -> str:
-        """Return the role of the message sender ("user" or "assistant")."""
+    def text(self) -> str:
+        """Return the message text content."""
+        raise NotImplementedError
+
+
+class ToolCall(ABC):
+    """Abstract base class representing a tool/function call made by the AI."""
+
+    @property
+    @abstractmethod
+    def tool_name(self) -> str:
+        """Name of the tool/function being called."""
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def content(self) -> str:
-        """Return the text content of the message."""
+    def tool_args(self) -> Dict[str, Any]:
+        """Arguments passed to the tool as a dictionary."""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def tool_id(self) -> str:
+        """Unique identifier for this specific tool call invocation."""
         raise NotImplementedError
 
 
-class AIClient(ABC):
-    """Abstract base class for AI chat service clients.
+class AIService(ABC):
+    """Abstract base class for AI chat service implementations.
 
     Defines the contract for interacting with an AI chat service,
     independent of the specific provider implementation.
     """
 
     @abstractmethod
-    def send_message(self, user_id: str, message: str) -> str:
-        """Send a message and get a response from the AI.
+    def send_message(
+        self,
+        user_id: str,
+        prompt: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Send a message to the AI model and receive a response.
 
         Args:
             user_id: Unique identifier for the user.
-            message: The message text to send.
+            prompt: The user's message/prompt text.
+            context: Optional dictionary containing:
+                - "tools": List of available tool definitions
+                - "conversation_history": Previous Message objects
+                - Other provider-specific context
 
         Returns:
-            The AI's response as a string.
+            The AI model's response as a plain text string.
 
         Raises:
-            ValueError: If user_id or message is empty.
+            ValueError: If user_id or prompt is empty.
             RuntimeError: If there's an error communicating with the AI service.
 
         """
 
     @abstractmethod
-    def get_conversation_history(self, user_id: str) -> list["Message"]:
-        """Retrieve the conversation history for a user.
+    def extract_tool_calls(self, response: str) -> List["ToolCall"]:
+        """Extract tool calls from an AI response if present.
 
         Args:
-            user_id: Unique identifier for the user.
+            response: The text response from send_message.
 
         Returns:
-            A list of Message objects representing the conversation history,
-            ordered from oldest to newest.
+            List of ToolCall objects. Empty list if no tools were called.
 
         Raises:
-            ValueError: If user_id is empty.
-
-        """
-
-    @abstractmethod
-    def clear_conversation(self, user_id: str) -> bool:
-        """Clear the conversation history for a user.
-
-        Args:
-            user_id: Unique identifier for the user.
-
-        Returns:
-            True if the conversation was successfully cleared, False otherwise.
-
-        Raises:
-            ValueError: If user_id is empty.
+            RuntimeError: If parsing tool calls fails.
 
         """
 
 
-def get_client(user_id: str, api_key: str, db_path: str = "conversations.db") -> AIClient:
-    """Return an instance of an AI chat client.
+def get_client(user_id: str, api_key: str) -> AIService:
+    """Return an instance of an AI chat service.
 
     Args:
         user_id: Unique identifier for the user.
         api_key: API key for the AI service.
-        db_path: Path to the conversation database. Defaults to "conversations.db".
 
     Returns:
-        AIClient: An instance conforming to the AIClient contract.
+        AIService: An instance conforming to the AIService contract.
 
     Raises:
         NotImplementedError: If the function is not overridden by an implementation.
@@ -97,15 +106,32 @@ def get_client(user_id: str, api_key: str, db_path: str = "conversations.db") ->
     raise NotImplementedError
 
 
-def get_message(role: str, content: str) -> Message:
+def get_message(text: str) -> Message:
     """Return an instance of a Message.
 
     Args:
-        role: The role of the message sender ("user" or "assistant").
-        content: The text content of the message.
+        text: The message text content.
 
     Returns:
         Message: An instance conforming to the Message contract.
+
+    Raises:
+        NotImplementedError: If the function is not overridden by an implementation.
+
+    """
+    raise NotImplementedError
+
+
+def get_tool_call(tool_name: str, tool_args: Dict[str, Any], tool_id: str) -> ToolCall:
+    """Return an instance of a ToolCall.
+
+    Args:
+        tool_name: Name of the tool being called.
+        tool_args: Arguments dictionary for the tool.
+        tool_id: Unique identifier for this invocation.
+
+    Returns:
+        ToolCall: An instance conforming to the ToolCall contract.
 
     Raises:
         NotImplementedError: If the function is not overridden by an implementation.

@@ -1,146 +1,192 @@
 """Tests for the abstract AI chat client interface."""
 
+from typing import Any, Dict, List
+
 import pytest
-from ai_client_api.client import AIClient
-from gemini_impl.message import MessageImpl
+
+import ai_client_api
+from ai_client_api.client import AIService, Message, ToolCall
 
 
-class ConcreteAIClient(AIClient):
-    """Concrete implementation of AIClient for testing."""
+class ConcreteToolCall(ToolCall):
+    """Concrete implementation of ToolCall for testing."""
+
+    def __init__(self, tool_name: str, tool_args: Dict[str, Any], tool_id: str) -> None:
+        """Initialize a tool call."""
+        self._tool_name = tool_name
+        self._tool_args = tool_args
+        self._tool_id = tool_id
+
+    @property
+    def tool_name(self) -> str:
+        """Return the tool name."""
+        return self._tool_name
+
+    @property
+    def tool_args(self) -> Dict[str, Any]:
+        """Return the tool arguments."""
+        return self._tool_args
+
+    @property
+    def tool_id(self) -> str:
+        """Return the tool ID."""
+        return self._tool_id
+
+
+class ConcreteMessage(Message):
+    """Concrete implementation of Message for testing."""
+
+    def __init__(self, text: str) -> None:
+        """Initialize a message."""
+        self._text = text
+
+    @property
+    def text(self) -> str:
+        """Return the message text."""
+        return self._text
+
+
+class ConcreteAIService(AIService):
+    """Concrete implementation of AIService for testing."""
 
     def __init__(self) -> None:
-        """Initialize with empty conversation storage."""
-        self.conversations: dict[str, list[MessageImpl]] = {}
+        """Initialize with empty storage."""
+        self.last_response: str = ""
+        self.tool_calls: List[ToolCall] = []
 
-    def send_message(self, user_id: str, message: str) -> str:
+    def send_message(
+        self,
+        user_id: str,
+        prompt: str,
+        context: Dict[str, Any] | None = None,
+    ) -> str:
         """Send a message and return a mock response."""
         if not user_id:
             msg = "user_id cannot be empty"
             raise ValueError(msg)
-        if not message:
-            msg = "message cannot be empty"
+        if not prompt:
+            msg = "prompt cannot be empty"
             raise ValueError(msg)
 
-        if user_id not in self.conversations:
-            self.conversations[user_id] = []
+        self.last_response = f"Response to: {prompt}"
+        return self.last_response
 
-        self.conversations[user_id].append(MessageImpl(role="user", content=message))
-        response = f"Response to: {message}"
-        self.conversations[user_id].append(MessageImpl(role="assistant", content=response))
-
-        return response
-
-    def get_conversation_history(self, user_id: str) -> list[MessageImpl]:
-        """Return the conversation history for a user."""
-        if not user_id:
-            msg = "user_id cannot be empty"
-            raise ValueError(msg)
-        return self.conversations.get(user_id, [])
-
-    def clear_conversation(self, user_id: str) -> bool:
-        """Clear the conversation history for a user."""
-        if not user_id:
-            msg = "user_id cannot be empty"
-            raise ValueError(msg)
-        if user_id in self.conversations:
-            self.conversations[user_id] = []
-            return True
-        return False
+    def extract_tool_calls(self, response: str) -> List[ToolCall]:
+        """Extract tool calls from response."""
+        # Mock implementation - return empty list
+        return []
 
 
-class TestAIClientAbstractMethods:
-    """Test that AIClient enforces abstract methods."""
+class TestABCExists:
+    """Test that all ABCs exist and can be imported."""
 
-    def test_cannot_instantiate_abstract_client(self) -> None:
-        """Test that AIClient cannot be instantiated directly."""
+    def test_message_abc_exists(self) -> None:
+        """Test that Message ABC exists."""
+        assert Message is not None
+
+    def test_tool_call_abc_exists(self) -> None:
+        """Test that ToolCall ABC exists."""
+        assert ToolCall is not None
+
+    def test_aiservice_abc_exists(self) -> None:
+        """Test that AIService ABC exists."""
+        assert AIService is not None
+
+
+class TestAIServiceAbstractMethods:
+    """Test that AIService enforces abstract methods."""
+
+    def test_cannot_instantiate_abstract_service(self) -> None:
+        """Test that AIService cannot be instantiated directly."""
         with pytest.raises(TypeError):
-            AIClient()
+            AIService()
 
 
 class TestMessage:
-    """Test the MessageImpl concrete implementation."""
+    """Test the Message concrete implementation."""
 
-    def test_message_creation(self) -> None:
-        """Test creating a MessageImpl instance."""
-        msg = MessageImpl(role="user", content="Hello")
-        assert msg.role == "user"
-        assert msg.content == "Hello"
-
-    def test_message_assistant_role(self) -> None:
-        """Test creating an assistant message."""
-        msg = MessageImpl(role="assistant", content="Hi there!")
-        assert msg.role == "assistant"
-        assert msg.content == "Hi there!"
+    def test_message_text_property(self) -> None:
+        """Test creating a Message with text property."""
+        msg = ConcreteMessage(text="Hello")
+        assert msg.text == "Hello"
 
 
-class TestConcreteAIClient:
-    """Test the concrete implementation of AIClient."""
+class TestToolCall:
+    """Test the ToolCall concrete implementation."""
+
+    def test_tool_call_creation(self) -> None:
+        """Test creating a ToolCall instance."""
+        tc = ConcreteToolCall(
+            tool_name="close_ticket",
+            tool_args={"ticket_id": "123"},
+            tool_id="tc_001",
+        )
+        assert tc.tool_name == "close_ticket"
+        assert tc.tool_args == {"ticket_id": "123"}
+        assert tc.tool_id == "tc_001"
+
+    def test_tool_call_properties(self) -> None:
+        """Test that all ToolCall properties are accessible."""
+        tc = ConcreteToolCall(
+            tool_name="create_ticket",
+            tool_args={"title": "Bug", "description": "A bug"},
+            tool_id="tc_002",
+        )
+        assert isinstance(tc.tool_name, str)
+        assert isinstance(tc.tool_args, dict)
+        assert isinstance(tc.tool_id, str)
+
+
+class TestConcreteAIService:
+    """Test the concrete implementation of AIService."""
 
     @pytest.fixture
-    def client(self) -> ConcreteAIClient:
-        """Provide a concrete client for testing."""
-        return ConcreteAIClient()
+    def service(self) -> ConcreteAIService:
+        """Provide a concrete service for testing."""
+        return ConcreteAIService()
 
-    def test_send_message_success(self, client: ConcreteAIClient) -> None:
+    def test_send_message_success(self, service: ConcreteAIService) -> None:
         """Test sending a message successfully."""
-        response = client.send_message("user123", "Hello")
+        response = service.send_message("user123", "Hello")
         assert response == "Response to: Hello"
 
-    def test_send_message_empty_user_id(self, client: ConcreteAIClient) -> None:
+    def test_send_message_with_context(self, service: ConcreteAIService) -> None:
+        """Test sending a message with context."""
+        context = {"tools": []}
+        response = service.send_message("user123", "Hello", context=context)
+        assert response == "Response to: Hello"
+
+    def test_send_message_empty_user_id(self, service: ConcreteAIService) -> None:
         """Test that empty user_id raises ValueError."""
         with pytest.raises(ValueError, match="user_id cannot be empty"):
-            client.send_message("", "Hello")
+            service.send_message("", "Hello")
 
-    def test_send_message_empty_message(self, client: ConcreteAIClient) -> None:
-        """Test that empty message raises ValueError."""
-        with pytest.raises(ValueError, match="message cannot be empty"):
-            client.send_message("user123", "")
+    def test_send_message_empty_prompt(self, service: ConcreteAIService) -> None:
+        """Test that empty prompt raises ValueError."""
+        with pytest.raises(ValueError, match="prompt cannot be empty"):
+            service.send_message("user123", "")
 
-    def test_get_conversation_history_new_user(self, client: ConcreteAIClient) -> None:
-        """Test getting history for a user with no messages."""
-        history = client.get_conversation_history("newuser")
-        assert history == []
+    def test_extract_tool_calls(self, service: ConcreteAIService) -> None:
+        """Test extracting tool calls from response."""
+        response = "Some response text"
+        tool_calls = service.extract_tool_calls(response)
+        assert isinstance(tool_calls, list)
 
-    def test_get_conversation_history_existing_user(
-        self,
-        client: ConcreteAIClient,
-    ) -> None:
-        """Test getting history for a user with messages."""
-        client.send_message("user123", "Hello")
-        client.send_message("user123", "How are you?")
 
-        history = client.get_conversation_history("user123")
-        assert len(history) == 4
-        assert history[0].role == "user"
-        assert history[0].content == "Hello"
-        assert history[1].role == "assistant"
-        assert history[2].role == "user"
-        assert history[2].content == "How are you?"
-        assert history[3].role == "assistant"
+class TestFactoryFunctions:
+    """Test factory functions."""
 
-    def test_get_conversation_history_empty_user_id(
-        self,
-        client: ConcreteAIClient,
-    ) -> None:
-        """Test that empty user_id raises ValueError."""
-        with pytest.raises(ValueError, match="user_id cannot be empty"):
-            client.get_conversation_history("")
+    def test_get_client_raises_not_implemented(self) -> None:
+        """Test that get_client raises NotImplementedError."""
+        with pytest.raises(NotImplementedError):
+            ai_client_api.get_client("user123", "api_key")
 
-    def test_clear_conversation_success(self, client: ConcreteAIClient) -> None:
-        """Test clearing conversation history."""
-        client.send_message("user123", "Hello")
-        assert len(client.get_conversation_history("user123")) == 2
+    def test_get_message_raises_not_implemented(self) -> None:
+        """Test that get_message raises NotImplementedError."""
+        with pytest.raises(NotImplementedError):
+            ai_client_api.get_message("Hello")
 
-        result = client.clear_conversation("user123")
-        assert result is True
-        assert len(client.get_conversation_history("user123")) == 0
-
-    def test_clear_conversation_nonexistent_user(self, client: ConcreteAIClient) -> None:
-        """Test clearing conversation for user with no history."""
-        result = client.clear_conversation("nonexistent")
-        assert result is False
-
-    def test_clear_conversation_empty_user_id(self, client: ConcreteAIClient) -> None:
-        """Test that empty user_id raises ValueError."""
-        with pytest.raises(ValueError, match="user_id cannot be empty"):
-            client.clear_conversation("")
+    def test_get_tool_call_raises_not_implemented(self) -> None:
+        """Test that get_tool_call raises NotImplementedError."""
+        with pytest.raises(NotImplementedError):
+            ai_client_api.get_tool_call("tool_name", {}, "tool_id")
