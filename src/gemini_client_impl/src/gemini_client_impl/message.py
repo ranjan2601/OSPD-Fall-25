@@ -1,15 +1,11 @@
 """Concrete implementation of Message for Gemini."""
 
-from dataclasses import dataclass
 from ai_client_api.client import Message
 import ai_client_api
 
 
-@dataclass
 class MessageImpl(Message):
     """Concrete implementation of the Message ABC."""
-
-    _text: str
 
     def __init__(self, text: str) -> None:
         """Initialize a message with text."""

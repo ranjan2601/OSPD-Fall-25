@@ -6,8 +6,6 @@ import ai_client_api
 import google.generativeai as genai
 from ai_client_api.client import AIService, ToolCall
 
-from gemini_impl.tool_call import get_tool_call_impl
-
 
 class GeminiClient(AIService):
     """Gemini implementation following the shared AIService interface."""
@@ -43,11 +41,6 @@ class GeminiClient(AIService):
             raise ValueError("user_id cannot be empty")
         if not prompt:
             raise ValueError("prompt cannot be empty")
-
-        # Extract tools if provided by Chat service
-        tools = None
-        if context and "tools" in context:
-            tools = context["tools"]
 
         try:
             # Send prompt to Gemini (tool support added later)

@@ -15,9 +15,9 @@ from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from ai_client_api.client import AIClient, Message
-from gemini_impl.client import GeminiClient
-from gemini_impl.message import MessageImpl
-from gemini_impl.oauth import OAuthManager
+from gemini_client_impl.client import GeminiClient
+from gemini_client_impl.message import MessageImpl
+from gemini_client_impl.oauth import OAuthManager
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)

@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gemini_impl.client import GeminiClient
+from gemini_client_impl.client import GeminiClient
 
 
 class TestGeminiClientInit:
@@ -55,7 +55,7 @@ class TestGeminiClientSendMessage:
         """Provide a mocked Gemini client for testing."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = str(Path(tmpdir) / "test.db")
-            with patch("gemini_impl.client.genai.GenerativeModel"):
+            with patch("gemini_client_impl.client.genai.GenerativeModel"):
                 client = GeminiClient(api_key="test-key", db_path=db_path)
                 # Mock the model's generate_content method
                 mock_response = MagicMock()
@@ -100,7 +100,7 @@ class TestGeminiClientGetHistory:
         """Provide a mocked Gemini client for testing."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = str(Path(tmpdir) / "test.db")
-            with patch("gemini_impl.client.genai.GenerativeModel"):
+            with patch("gemini_client_impl.client.genai.GenerativeModel"):
                 client = GeminiClient(api_key="test-key", db_path=db_path)
                 # Mock the model's generate_content method
                 mock_response = MagicMock()
@@ -154,7 +154,7 @@ class TestGeminiClientClearConversation:
         """Provide a mocked Gemini client for testing."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = str(Path(tmpdir) / "test.db")
-            with patch("gemini_impl.client.genai.GenerativeModel"):
+            with patch("gemini_client_impl.client.genai.GenerativeModel"):
                 client = GeminiClient(api_key="test-key", db_path=db_path)
                 # Mock the model's generate_content method
                 mock_response = MagicMock()

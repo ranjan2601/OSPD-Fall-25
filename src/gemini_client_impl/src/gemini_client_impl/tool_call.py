@@ -1,19 +1,25 @@
 """Concrete implementation of ToolCall for Gemini."""
 
-from dataclasses import dataclass
 from typing import Any, Dict
 
 import ai_client_api
 from ai_client_api.client import ToolCall
 
 
-@dataclass
 class ToolCallImpl(ToolCall):
     """Concrete implementation of the ToolCall ABC."""
 
-    _tool_name: str
-    _tool_args: Dict[str, Any]
-    _tool_id: str
+    def __init__(self, tool_name: str, tool_args: Dict[str, Any], tool_id: str) -> None:
+        """Initialize a tool call.
+
+        Args:
+            tool_name: Name of the tool being called.
+            tool_args: Arguments dictionary for the tool.
+            tool_id: Unique identifier for this invocation.
+        """
+        self._tool_name = tool_name
+        self._tool_args = tool_args
+        self._tool_id = tool_id
 
     @property
     def tool_name(self) -> str:
@@ -33,9 +39,9 @@ def get_tool_call_impl(
 ) -> ai_client_api.ToolCall:
     """Factory function for ToolCallImpl."""
     return ToolCallImpl(
-        _tool_name=tool_name,
-        _tool_args=tool_args,
-        _tool_id=tool_id,
+        tool_name=tool_name,
+        tool_args=tool_args,
+        tool_id=tool_id,
     )
 
 

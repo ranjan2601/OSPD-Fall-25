@@ -32,7 +32,7 @@ members = [
   "src/mail_client_service_client",
   "src/mail_client_adapter",
   "src/ai_client_api",
-  "src/gemini_impl",
+  "src/gemini_client_impl",
   "src/gemini_service",
   "src/gemini_service_api_client",
   "src/gemini_adapter",
@@ -61,10 +61,10 @@ ignore = [
 [tool.mypy]
 strict = true
 explicit_package_bases = true # Required for src layout
-mypy_path = ["src/mail_client_api/src", "src/gmail_client_impl/src", "src/mail_client_service/src", "src/mail_client_service_client/src", "src/mail_client_adapter/src", "src/ai_client_api/src", "src/gemini_impl/src", "src/gemini_service/src", "src/gemini_service_api_client/src", "src/gemini_adapter/src"]
+mypy_path = ["src/mail_client_api/src", "src/gmail_client_impl/src", "src/mail_client_service/src", "src/mail_client_service_client/src", "src/mail_client_adapter/src", "src/ai_client_api/src", "src/gemini_client_impl/src", "src/gemini_service/src", "src/gemini_service_api_client/src", "src/gemini_adapter/src"]
 ignore_missing_imports = false
 warn_unused_ignores = false
-exclude = ["tests/", ".*/tests/.*", "src/mail_client_service_client/", "src/gemini_service_api_client/", "src/gemini_impl/", "src/mail_client_service/", "src/gemini_adapter/", "src/test_app.py"]
+exclude = ["tests/", ".*/tests/.*", "src/mail_client_service_client/", "src/gemini_service_api_client/", "src/gemini_client_impl/", "src/mail_client_service/", "src/gemini_adapter/", "src/test_app.py"]
 
 
 [tool.pytest.ini_options]

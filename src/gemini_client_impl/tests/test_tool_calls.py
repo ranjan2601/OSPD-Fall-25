@@ -1,4 +1,5 @@
-from gemini_impl.client import GeminiClient
+from gemini_client_impl.client import GeminiClient
+
 
 def test_extract_tool_calls_returns_empty():
     client = GeminiClient(api_key="dummy")

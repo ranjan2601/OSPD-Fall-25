@@ -1,7 +1,7 @@
 """Adapter implementation connecting abstract API to Gemini FastAPI service."""
 
 from ai_client_api.client import AIClient
-from gemini_impl.message import MessageImpl
+from gemini_client_impl.message import MessageImpl
 from gemini_service_api_client.gemini_ai_service_client import Client as GeminiHTTPClient
 
 
