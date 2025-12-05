@@ -1,216 +1,72 @@
-"""Google Gemini API implementation of AIClient with conversation history storage."""
+"""Google Gemini API implementation of AIService (HW3 version)."""
 
-import sqlite3
-from pathlib import Path
-from typing import Any
+from typing import Any, Dict, Optional, List
 
 import ai_client_api
 import google.generativeai as genai
-from ai_client_api.client import AIClient, Message
+from ai_client_api.client import AIService, ToolCall
 
-from gemini_impl.message import MessageImpl
+from gemini_impl.tool_call import get_tool_call_impl
 
 
-class GeminiClient(AIClient):
-    """Concrete implementation using Google Gemini API.
+class GeminiClient(AIService):
+    """Gemini implementation following the shared AIService interface."""
 
-    Attributes:
-        api_key: Google Gemini API key for authentication.
-        db_path: Path to SQLite database for storing conversation history.
-
-    """
-
-    def __init__(self, api_key: str, db_path: str = "conversations.db") -> None:
-        """Initialize the Gemini client.
-
-        Args:
-            api_key: Google Gemini API key.
-            db_path: Path to SQLite database file. Defaults to "conversations.db".
-
-        Raises:
-            ValueError: If api_key is empty.
-
-        """
+    def __init__(self, api_key: str) -> None:
         if not api_key:
-            msg = "api_key cannot be empty"
-            raise ValueError(msg)
+            raise ValueError("api_key cannot be empty")
 
         self.api_key = api_key
-        self.db_path = db_path
 
         # Initialize Gemini API
         genai.configure(api_key=api_key)
         self.model: Any = genai.GenerativeModel("gemini-2.0-flash")
 
-        self._init_db()
-
-    def _init_db(self) -> None:
-        """Initialize the SQLite database for conversation storage."""
-        db_file = Path(self.db_path)
-        db_file.parent.mkdir(parents=True, exist_ok=True)
-
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS conversations (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id TEXT NOT NULL,
-                    role TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                """,
-            )
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_user_id ON conversations(user_id)",
-            )
-            conn.commit()
-
-    def send_message(self, user_id: str, message: str) -> str:
-        """Send a message and get a response from Gemini API.
+    def send_message(
+        self,
+        user_id: str,
+        prompt: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Send a prompt to Gemini and return the model's response as text.
 
         Args:
-            user_id: Unique identifier for the user.
-            message: The message text to send.
+            user_id: Required by interface, but not used for storage in HW3.
+            prompt: Text prompt from the user.
+            context: Optional dict containing tool definitions, conversation history, etc.
 
         Returns:
-            The AI's response as a string.
-
-        Raises:
-            ValueError: If user_id or message is empty.
-            RuntimeError: If there's an error with the Gemini API.
-
+            A plain string response from the Gemini model.
         """
+
         if not user_id:
-            msg = "user_id cannot be empty"
-            raise ValueError(msg)
-        if not message:
-            msg = "message cannot be empty"
-            raise ValueError(msg)
+            raise ValueError("user_id cannot be empty")
+        if not prompt:
+            raise ValueError("prompt cannot be empty")
 
-        # Store user message
-        self._store_message(user_id, "user", message)
+        # Extract tools if provided by Chat service
+        tools = None
+        if context and "tools" in context:
+            tools = context["tools"]
 
-        # Generate response (would call Gemini API in production)
-        response = self._generate_response(message)
-
-        # Store assistant response
-        self._store_message(user_id, "assistant", response)
-
-        return response
-
-    def _generate_response(self, message: str) -> str:
-        """Generate a response for the message using Gemini API.
-
-        Args:
-            message: The user's message.
-
-        Returns:
-            A response string from Gemini API.
-
-        Raises:
-            RuntimeError: If there's an error calling the Gemini API.
-
-        """
         try:
-            response = self.model.generate_content(message)
+            # Send prompt to Gemini (tool support added later)
+            response = self.model.generate_content(prompt)
+            return response.text or ""
         except Exception as e:
-            msg = f"Error calling Gemini API: {e!s}"
-            raise RuntimeError(msg) from e
-        else:
-            return response.text
+            raise RuntimeError(f"Error calling Gemini API: {e}") from e
 
-    def get_conversation_history(self, user_id: str) -> list[Message]:
-        """Retrieve the conversation history for a user.
-
-        Args:
-            user_id: Unique identifier for the user.
-
-        Returns:
-            A list of Message objects representing the conversation history.
-
-        Raises:
-            ValueError: If user_id is empty.
-
-        """
-        if not user_id:
-            msg = "user_id cannot be empty"
-            raise ValueError(msg)
-
-        messages: list[Message] = []
-
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT role, content FROM conversations WHERE user_id = ? ORDER BY created_at ASC",
-                (user_id,),
-            )
-            rows = cursor.fetchall()
-
-        for role, content in rows:
-            messages.append(MessageImpl(role=role, content=content))
-
-        return messages
-
-    def clear_conversation(self, user_id: str) -> bool:
-        """Clear the conversation history for a user.
-
-        Args:
-            user_id: Unique identifier for the user.
-
-        Returns:
-            True if the conversation was successfully cleared, False otherwise.
-
-        Raises:
-            ValueError: If user_id is empty.
-
-        """
-        if not user_id:
-            msg = "user_id cannot be empty"
-            raise ValueError(msg)
-
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM conversations WHERE user_id = ?", (user_id,))
-            conn.commit()
-            return cursor.rowcount > 0
-
-    def _store_message(self, user_id: str, role: str, content: str) -> None:
-        """Store a message in the database.
-
-        Args:
-            user_id: Unique identifier for the user.
-            role: Role of the message sender ("user" or "assistant").
-            content: The message content.
-
-        """
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "INSERT INTO conversations (user_id, role, content) VALUES (?, ?, ?)",
-                (user_id, role, content),
-            )
-            conn.commit()
+    def extract_tool_calls(self, response: str) -> List[ToolCall]:
+        """Parse Gemini response for tool calls (empty stub for HW3)."""
+        # TODO: implement actual Gemini tool call parsing
+        return []
 
 
-def get_client_impl(
-    user_id: str, api_key: str, db_path: str = "conversations.db"
-) -> ai_client_api.AIClient:
-    """Return a configured GeminiClient instance.
-
-    Args:
-        user_id: Unique identifier for the user.
-        api_key: Google Gemini API key.
-        db_path: Path to SQLite database. Defaults to "conversations.db".
-
-    Returns:
-        AIClient: A GeminiClient instance.
-
-    """
-    return GeminiClient(api_key=api_key, db_path=db_path)
+def get_client_impl(user_id: str, api_key: str) -> ai_client_api.AIService:
+    """Factory for creating a GeminiClient instance."""
+    return GeminiClient(api_key=api_key)
 
 
 def register() -> None:
-    """Register the Gemini client implementation with the AI client API."""
+    """Register this Gemini implementation with ai_client_api."""
     ai_client_api.get_client = get_client_impl
