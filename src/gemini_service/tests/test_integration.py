@@ -1,421 +1,305 @@
 """Integration tests for gemini_service.
 
-Tests the complete flow from HTTP request through the service to the client.
+Tests the complete flow from HTTP request through the service.
 """
+
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from gemini_service.api import (
-    _get_mock_client,
-    _reset_mock_client,
-    _reset_user_api_keys,
-    _store_user_api_key,
-    get_ai_client,
-)
 from gemini_service.main import app
 
 
 @pytest.fixture
-def client():
-    _reset_mock_client()
-    _reset_user_api_keys()
-    # Override the dependency to force mock client usage for tests
-    app.dependency_overrides[get_ai_client] = _get_mock_client
-    test_client = TestClient(app)
-    yield test_client
-    # Clean up
-    app.dependency_overrides.clear()
-    _reset_user_api_keys()
-
-
-@pytest.fixture(autouse=True)
-def setup_api_keys():
-    """Reset and setup API keys before each test."""
-    _reset_user_api_keys()
-    # Store test API keys for common test users
-    _store_user_api_key("integration_user_001", "test_key_001")
-    _store_user_api_key("user_001", "test_key_001")
-    _store_user_api_key("user_002", "test_key_002")
-    _store_user_api_key("concurrent_user_1", "test_key_1")
-    _store_user_api_key("concurrent_user_2", "test_key_2")
-    _store_user_api_key("test", "test_key_default")
-    yield
-    _reset_user_api_keys()
-
-
-class TestEndToEndChatFlow:
-    """Test complete chat conversation flow."""
-
-    @pytest.mark.skip(reason="Requires real Gemini API key for integration")
-    def test_complete_conversation_flow(self, client):
-        """Test sending multiple messages and retrieving history."""
-        user_id = "integration_user_001"
-
-        response1 = client.post(
-            "/chat",
-            json={"user_id": user_id, "message": "What is AI?"},
-            params={"authenticated_user_id": user_id},
-        )
-        assert response1.status_code == 200
-        assert "response" in response1.json()
-
-        response2 = client.post(
-            "/chat",
-            json={"user_id": user_id, "message": "Tell me more"},
-            params={"authenticated_user_id": user_id},
-        )
-        assert response2.status_code == 200
-
-        history_response = client.get(
-            f"/history/{user_id}",
-            params={"authenticated_user_id": user_id},
-        )
-        assert history_response.status_code == 200
-        history = history_response.json()
-        assert history["user_id"] == user_id
-        assert len(history["messages"]) >= 4
-
-        clear_response = client.delete(
-            f"/history/{user_id}",
-            params={"authenticated_user_id": user_id},
-        )
-        assert clear_response.status_code == 200
-        assert clear_response.json()["success"] is True
-
-        empty_history = client.get(
-            f"/history/{user_id}",
-            params={"authenticated_user_id": user_id},
-        )
-        assert len(empty_history.json()["messages"]) == 0
-
-    @pytest.mark.skip(reason="Requires real Gemini API key for integration")
-    def test_multiple_users_isolation(self, client):
-        """Test that conversations for different users are isolated."""
-        user1 = "user_001"
-        user2 = "user_002"
-
-        client.post(
-            "/chat",
-            json={"user_id": user1, "message": "User 1 message"},
-            params={"authenticated_user_id": user1},
-        )
-        client.post(
-            "/chat",
-            json={"user_id": user2, "message": "User 2 message"},
-            params={"authenticated_user_id": user2},
-        )
-
-        history1 = client.get(
-            f"/history/{user1}",
-            params={"authenticated_user_id": user1},
-        ).json()["messages"]
-        history2 = client.get(
-            f"/history/{user2}",
-            params={"authenticated_user_id": user2},
-        ).json()["messages"]
-
-        assert len(history1) == 2
-        assert len(history2) == 2
-        assert history1[0]["content"] == "User 1 message"
-        assert history2[0]["content"] == "User 2 message"
-
-
-class TestErrorHandlingFlow:
-    """Test error handling across different scenarios."""
-
-    @pytest.mark.skip(reason="Requires real Gemini API key for integration")
-    def test_invalid_requests_return_proper_errors(self, client):
-        """Test that various invalid requests return appropriate error codes."""
-        response = client.post(
-            "/chat",
-            json={"user_id": "", "message": "Hello"},
-            params={"authenticated_user_id": "test_user"},
-        )
-        assert response.status_code == 400
-
-        response = client.post(
-            "/chat",
-            json={"user_id": "user", "message": ""},
-            params={"authenticated_user_id": "user"},
-        )
-        assert response.status_code == 400
-
-        response = client.post(
-            "/chat",
-            json={"user_id": "", "message": ""},
-            params={"authenticated_user_id": "test"},
-        )
-        assert response.status_code == 400
-
-    def test_history_empty_user_id(self, client):
-        """Test history endpoint with empty user_id."""
-        response = client.get("/history/")
-        assert response.status_code == 404
-
-    @pytest.mark.skip(reason="Requires real Gemini API key for integration")
-    def test_clear_nonexistent_conversation(self, client):
-        """Test clearing conversation that doesn't exist."""
-        response = client.delete(
-            "/history/nonexistent_user_999",
-            params={"authenticated_user_id": "nonexistent_user_999"},
-        )
-        assert response.status_code == 200
-        assert response.json()["success"] is False
-
-
-class TestOAuthFlowIntegration:
-    """Test OAuth flow integration."""
-
-    def test_oauth_endpoints_exist(self, client):
-        """Test that all OAuth endpoints are accessible."""
-        response = client.get("/auth/login?user_id=test_user")
-        assert response.status_code in [200, 500]
-
-        response = client.post(
-            "/auth/callback",
-            json={"user_id": "test_user", "code": "fake_code", "api_key": "fake_key"},
-        )
-        assert response.status_code in [200, 400, 500]
-
-        response = client.delete(
-            "/auth/test_user",
-            params={"authenticated_user_id": "test_user"},
-        )
-        assert response.status_code in [200, 404, 500]
+def client() -> TestClient:
+    """Provide a test client for the FastAPI app."""
+    return TestClient(app)
 
 
 class TestHealthEndpoints:
     """Test health check and status endpoints."""
 
-    def test_root_endpoint_returns_service_status(self, client):
+    def test_root_endpoint_returns_service_status(self, client: TestClient) -> None:
         """Test root endpoint."""
         response = client.get("/")
         assert response.status_code == 200
         assert "message" in response.json()
         assert "Gemini AI Service" in response.json()["message"]
 
-    def test_health_endpoint_returns_healthy(self, client):
+    def test_health_endpoint_returns_healthy(self, client: TestClient) -> None:
         """Test health check endpoint."""
         response = client.get("/health")
         assert response.status_code == 200
-        assert response.json()["status"] == "healthy"
-
-
-class TestMockClientBehavior:
-    """Test the mock client behavior in isolation."""
-
-    def test_mock_client_maintains_state(self):
-        """Test that mock client properly maintains conversation state."""
-        _reset_mock_client()
-        mock = _get_mock_client()
-
-        response1 = mock.send_message("user1", "First message")
-        assert "Mock response to: First message" in response1
-
-        response2 = mock.send_message("user1", "Second message")
-        assert "Mock response to: Second message" in response2
-
-        history = mock.get_conversation_history("user1")
-        assert len(history) == 4
-        assert history[0].role == "user"
-        assert history[0].content == "First message"
-        assert history[1].role == "assistant"
-        assert history[2].content == "Second message"
-
-    def test_mock_client_multiple_users(self):
-        """Test mock client handles multiple users correctly."""
-        _reset_mock_client()
-        mock = _get_mock_client()
-
-        mock.send_message("user1", "User 1 msg")
-        mock.send_message("user2", "User 2 msg")
-        mock.send_message("user1", "User 1 second")
-
-        hist1 = mock.get_conversation_history("user1")
-        hist2 = mock.get_conversation_history("user2")
-
-        assert len(hist1) == 4
-        assert len(hist2) == 2
-
-    def test_mock_client_clear_specific_user(self):
-        """Test that clearing one user's history doesn't affect others."""
-        _reset_mock_client()
-        mock = _get_mock_client()
-
-        mock.send_message("user1", "Message 1")
-        mock.send_message("user2", "Message 2")
-
-        mock.clear_conversation("user1")
-
-        assert len(mock.get_conversation_history("user1")) == 0
-        assert len(mock.get_conversation_history("user2")) == 2
-
-    def test_mock_client_validation_errors(self):
-        """Test that mock client properly validates inputs."""
-        _reset_mock_client()
-        mock = _get_mock_client()
-
-        with pytest.raises(ValueError, match="user_id cannot be empty"):
-            mock.send_message("", "message")
-
-        with pytest.raises(ValueError, match="message cannot be empty"):
-            mock.send_message("user", "")
-
-        with pytest.raises(ValueError, match="user_id cannot be empty"):
-            mock.get_conversation_history("")
-
-        with pytest.raises(ValueError, match="user_id cannot be empty"):
-            mock.clear_conversation("")
-
-
-class TestAPIResponseStructure:
-    """Test that API responses follow correct structure."""
-
-    @pytest.mark.skip(reason="Requires real Gemini API key for integration")
-    def test_send_message_response_structure(self, client):
-        """Test send message response has correct structure."""
-        response = client.post(
-            "/chat",
-            json={"user_id": "test", "message": "Hello"},
-            params={"authenticated_user_id": "test"},
-        )
-        assert response.status_code == 200
         data = response.json()
-        assert "response" in data
-        assert isinstance(data["response"], str)
-
-    @pytest.mark.skip(reason="Requires real Gemini API key for integration")
-    def test_history_response_structure(self, client):
-        """Test history response has correct structure."""
-        client.post(
-            "/chat",
-            json={"user_id": "test", "message": "Test"},
-            params={"authenticated_user_id": "test"},
-        )
-        response = client.get("/history/test", params={"authenticated_user_id": "test"})
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "user_id" in data
-        assert "messages" in data
-        assert isinstance(data["messages"], list)
-
-        if len(data["messages"]) > 0:
-            msg = data["messages"][0]
-            assert "role" in msg
-            assert "content" in msg
-
-    def test_clear_response_structure(self, client):
-        """Test clear conversation response structure."""
-        # Store API key for test user first
-        _store_user_api_key("test_user", "test_key")
-        response = client.delete(
-            "/history/test_user",
-            params={"authenticated_user_id": "test_user"},
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "user_id" in data
-        assert "success" in data
-        assert isinstance(data["success"], bool)
+        assert data["status"] == "healthy"
+        assert data["service"] == "Gemini AI Service"
+        assert data["version"] == "1.0.0"
 
 
-class TestConcurrentRequests:
-    """Test handling of concurrent-like scenarios."""
+class TestSendMessageIntegration:
+    """Integration tests for the /send_message endpoint."""
 
-    @pytest.mark.skip(reason="Requires real Gemini API key for integration")
-    def test_sequential_requests_same_user(self, client):
-        """Test multiple sequential requests for same user work correctly."""
-        user_id = "concurrent_user_1"
+    def test_complete_message_flow(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Test complete flow of sending a message and receiving response."""
+        monkeypatch.setenv("GEMINI_API_KEY", "test_key")
 
-        for i in range(5):
+        mock_service = MagicMock()
+        mock_service.send_message.return_value = "This is the AI response"
+        mock_service.extract_tool_calls.return_value = []
+
+        with patch(
+            "gemini_service.api.ai_client_api.get_client",
+            return_value=mock_service,
+        ):
             response = client.post(
-                "/chat",
-                json={"user_id": user_id, "message": f"Message {i}"},
-                params={"authenticated_user_id": user_id},
+                "/send_message",
+                json={
+                    "user_id": "integration_user",
+                    "prompt": "What is machine learning?",
+                },
             )
-            assert response.status_code == 200
 
-        history = client.get(
-            f"/history/{user_id}",
-            params={"authenticated_user_id": user_id},
-        ).json()
-        assert len(history["messages"]) == 10
+        assert response.status_code == 200
+        data = response.json()
+        assert "text" in data
+        assert "tool_calls" in data
+        assert data["text"] == "This is the AI response"
+        assert data["tool_calls"] == []
 
-    @pytest.mark.skip(reason="Requires real Gemini API key for integration")
-    def test_interleaved_requests_multiple_users(self, client):
-        """Test interleaved requests for multiple users."""
-        users = ["concurrent_user_1", "concurrent_user_2"]
+    def test_message_with_tools_flow(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Test flow with tool definitions passed."""
+        monkeypatch.setenv("GEMINI_API_KEY", "test_key")
 
-        # Store API keys for the users
-        _store_user_api_key("user_a", "test_key_a")
-        _store_user_api_key("user_b", "test_key_b")
-        _store_user_api_key("user_c", "test_key_c")
+        mock_tool_call = MagicMock()
+        mock_tool_call.tool_name = "search"
+        mock_tool_call.tool_args = {"query": "latest news"}
+        mock_tool_call.tool_id = "call_001"
 
-        for i in range(3):
-            for user in users:
-                client.post(
-                    "/chat",
-                    json={"user_id": user, "message": f"Msg {i}"},
-                    params={"authenticated_user_id": user},
-                )
+        mock_service = MagicMock()
+        mock_service.send_message.return_value = "Searching for news"
+        mock_service.extract_tool_calls.return_value = [mock_tool_call]
 
-        for user in users:
-            history = client.get(
-                f"/history/{user}",
-                params={"authenticated_user_id": user},
-            ).json()
-            assert len(history["messages"]) == 6
+        with patch(
+            "gemini_service.api.ai_client_api.get_client",
+            return_value=mock_service,
+        ):
+            response = client.post(
+                "/send_message",
+                json={
+                    "user_id": "tool_user",
+                    "prompt": "Search for the latest news",
+                    "tools": [
+                        {
+                            "name": "search",
+                            "description": "Search the web",
+                            "parameters": {"query": {"type": "string"}},
+                        },
+                    ],
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["text"] == "Searching for news"
+        assert len(data["tool_calls"]) == 1
+        assert data["tool_calls"][0]["tool_name"] == "search"
+        assert data["tool_calls"][0]["tool_args"]["query"] == "latest news"
+
+    def test_dependency_injection_works(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Test that DI properly injects the Gemini implementation."""
+        monkeypatch.setenv("GEMINI_API_KEY", "test_key")
+
+        mock_service = MagicMock()
+        mock_service.send_message.return_value = "Response"
+        mock_service.extract_tool_calls.return_value = []
+
+        with patch(
+            "gemini_service.api.ai_client_api.get_client",
+            return_value=mock_service,
+        ) as mock_get_client:
+            client.post(
+                "/send_message",
+                json={"user_id": "test_user", "prompt": "Hello"},
+            )
+
+            mock_get_client.assert_called_once_with(
+                user_id="test_user",
+                api_key="test_key",
+            )
 
 
-class TestEdgeCases:
-    """Test edge cases and boundary conditions."""
+class TestErrorHandlingIntegration:
+    """Integration tests for error handling."""
 
-    @pytest.mark.skip(reason="Requires real Gemini API key for integration")
-    def test_very_long_message(self, client):
-        """Test handling of very long messages."""
-        long_message = "A" * 10000
+    def test_missing_user_id_returns_400(self, client: TestClient) -> None:
+        """Test that missing user_id returns proper error."""
         response = client.post(
-            "/chat",
-            json={"user_id": "test", "message": long_message},
-            params={"authenticated_user_id": "test"},
+            "/send_message",
+            json={"user_id": "", "prompt": "Hello"},
         )
+        assert response.status_code == 400
+        assert "user_id" in response.json()["detail"]
+
+    def test_missing_prompt_returns_400(self, client: TestClient) -> None:
+        """Test that missing prompt returns proper error."""
+        response = client.post(
+            "/send_message",
+            json={"user_id": "user", "prompt": ""},
+        )
+        assert response.status_code == 400
+        assert "prompt" in response.json()["detail"]
+
+    def test_missing_api_key_returns_500(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Test that missing API key returns proper error."""
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+
+        response = client.post(
+            "/send_message",
+            json={"user_id": "user", "prompt": "Hello"},
+        )
+        assert response.status_code == 500
+        assert "GEMINI_API_KEY" in response.json()["detail"]
+
+    def test_service_value_error_returns_400(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Test that ValueError from service returns 400."""
+        monkeypatch.setenv("GEMINI_API_KEY", "test_key")
+
+        mock_service = MagicMock()
+        mock_service.send_message.side_effect = ValueError("Bad input")
+
+        with patch(
+            "gemini_service.api.ai_client_api.get_client",
+            return_value=mock_service,
+        ):
+            response = client.post(
+                "/send_message",
+                json={"user_id": "user", "prompt": "Hello"},
+            )
+
+        assert response.status_code == 400
+        assert "Bad input" in response.json()["detail"]
+
+    def test_service_runtime_error_returns_500(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Test that RuntimeError from service returns 500."""
+        monkeypatch.setenv("GEMINI_API_KEY", "test_key")
+
+        mock_service = MagicMock()
+        mock_service.send_message.side_effect = RuntimeError("API failed")
+
+        with patch(
+            "gemini_service.api.ai_client_api.get_client",
+            return_value=mock_service,
+        ):
+            response = client.post(
+                "/send_message",
+                json={"user_id": "user", "prompt": "Hello"},
+            )
+
+        assert response.status_code == 500
+        assert "API failed" in response.json()["detail"]
+
+
+class TestRequestValidation:
+    """Test request validation and edge cases."""
+
+    def test_request_without_tools(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Test that tools field is optional."""
+        monkeypatch.setenv("GEMINI_API_KEY", "test_key")
+
+        mock_service = MagicMock()
+        mock_service.send_message.return_value = "Response"
+        mock_service.extract_tool_calls.return_value = []
+
+        with patch(
+            "gemini_service.api.ai_client_api.get_client",
+            return_value=mock_service,
+        ):
+            response = client.post(
+                "/send_message",
+                json={"user_id": "user", "prompt": "Hello"},
+            )
+
+        assert response.status_code == 200
+        mock_service.send_message.assert_called_once()
+        call_kwargs = mock_service.send_message.call_args.kwargs
+        assert call_kwargs["context"] is None
+
+    def test_request_with_empty_tools_list(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Test that empty tools list works."""
+        monkeypatch.setenv("GEMINI_API_KEY", "test_key")
+
+        mock_service = MagicMock()
+        mock_service.send_message.return_value = "Response"
+        mock_service.extract_tool_calls.return_value = []
+
+        with patch(
+            "gemini_service.api.ai_client_api.get_client",
+            return_value=mock_service,
+        ):
+            response = client.post(
+                "/send_message",
+                json={"user_id": "user", "prompt": "Hello", "tools": []},
+            )
+
         assert response.status_code == 200
 
-    @pytest.mark.skip(reason="Requires real Gemini API key for integration")
-    def test_special_characters_in_message(self, client):
-        """Test messages with special characters."""
-        special_msg = "Hello! @#$%^&*() <script>alert('xss')</script> 你好 🚀"
-        response = client.post(
-            "/chat",
-            json={"user_id": "test", "message": special_msg},
-            params={"authenticated_user_id": "test"},
-        )
-        assert response.status_code == 200
-        history_msg = client.get(
-            "/history/test",
-            params={"authenticated_user_id": "test"},
-        ).json()["messages"][0]["content"]
-        assert special_msg in history_msg
+    def test_special_characters_in_prompt(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Test prompts with special characters."""
+        monkeypatch.setenv("GEMINI_API_KEY", "test_key")
 
-    @pytest.mark.skip(reason="Requires real Gemini API key for integration")
-    def test_unicode_user_id(self, client):
-        """Test user IDs with unicode characters."""
-        user_id = "user_测试_🎯"
-        # Store API key for this user first
-        _store_user_api_key(user_id, "test_key_unicode")
-        response = client.post(
-            "/chat",
-            json={"user_id": user_id, "message": "Test"},
-            params={"authenticated_user_id": user_id},
-        )
-        assert response.status_code == 200
+        special_prompt = "Hello! @#$%^&*() 你好"
 
-        history = client.get(
-            f"/history/{user_id}",
-            params={"authenticated_user_id": user_id},
-        )
-        assert history.status_code == 200
-        assert history.json()["user_id"] == user_id
+        mock_service = MagicMock()
+        mock_service.send_message.return_value = "Response"
+        mock_service.extract_tool_calls.return_value = []
+
+        with patch(
+            "gemini_service.api.ai_client_api.get_client",
+            return_value=mock_service,
+        ):
+            response = client.post(
+                "/send_message",
+                json={"user_id": "user", "prompt": special_prompt},
+            )
+
+        assert response.status_code == 200
+        mock_service.send_message.assert_called_once()
+        call_kwargs = mock_service.send_message.call_args.kwargs
+        assert call_kwargs["prompt"] == special_prompt
