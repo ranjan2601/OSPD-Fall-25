@@ -176,17 +176,49 @@ class TestConcreteAIService:
 class TestFactoryFunctions:
     """Test factory functions."""
 
+    @pytest.fixture(autouse=True)
+    def reset_factories(self) -> None:
+        """Reset factory functions to original state before each test."""
+        from ai_client_api import client as client_module
+
+        original_get_client = client_module.get_client
+        original_get_message = client_module.get_message
+        original_get_tool_call = client_module.get_tool_call
+
+        def raise_not_implemented_client(user_id: str, api_key: str) -> AIService:
+            raise NotImplementedError
+
+        def raise_not_implemented_message(text: str) -> Message:
+            raise NotImplementedError
+
+        def raise_not_implemented_tool_call(
+            tool_name: str,
+            tool_args: Dict[str, Any],
+            tool_id: str,
+        ) -> ToolCall:
+            raise NotImplementedError
+
+        ai_client_api.get_client = raise_not_implemented_client
+        ai_client_api.get_message = raise_not_implemented_message
+        ai_client_api.get_tool_call = raise_not_implemented_tool_call
+
+        yield
+
+        ai_client_api.get_client = original_get_client
+        ai_client_api.get_message = original_get_message
+        ai_client_api.get_tool_call = original_get_tool_call
+
     def test_get_client_raises_not_implemented(self) -> None:
-        """Test that get_client raises NotImplementedError."""
+        """Test that get_client raises NotImplementedError when not registered."""
         with pytest.raises(NotImplementedError):
             ai_client_api.get_client("user123", "api_key")
 
     def test_get_message_raises_not_implemented(self) -> None:
-        """Test that get_message raises NotImplementedError."""
+        """Test that get_message raises NotImplementedError when not registered."""
         with pytest.raises(NotImplementedError):
             ai_client_api.get_message("Hello")
 
     def test_get_tool_call_raises_not_implemented(self) -> None:
-        """Test that get_tool_call raises NotImplementedError."""
+        """Test that get_tool_call raises NotImplementedError when not registered."""
         with pytest.raises(NotImplementedError):
             ai_client_api.get_tool_call("tool_name", {}, "tool_id")

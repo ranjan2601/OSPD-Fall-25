@@ -1,14 +1,15 @@
 """Adapter implementation connecting abstract API to Gemini FastAPI service."""
 
-from ai_client_api.client import AIClient
-from gemini_client_impl.message import MessageImpl
+from typing import Any, List, Optional
+
+from ai_client_api.client import AIService, ToolCall
 from gemini_service_api_client.gemini_ai_service_client import Client as GeminiHTTPClient
 
 
-class GeminiServiceAdapter(AIClient):
-    """Adapter that connects the abstract Gemini API to the FastAPI service via HTTP.
+class GeminiServiceAdapter(AIService):
+    """Adapter that connects the abstract API to the FastAPI service via HTTP.
 
-    This adapter implements the AIClient interface while delegating all calls
+    This adapter implements the AIService interface while delegating all calls
     to the auto-generated Gemini service HTTP client.
     """
 
@@ -17,85 +18,56 @@ class GeminiServiceAdapter(AIClient):
 
         Args:
             base_url: Base URL of the Gemini FastAPI service.
-                     Defaults to localhost:8000.
 
         """
         self.client = GeminiHTTPClient(base_url=base_url)
 
-    def send_message(self, user_id: str, message: str) -> str:
+    def send_message(
+        self,
+        user_id: str,
+        prompt: str,
+        context: Optional[dict[str, Any]] = None,
+    ) -> str:
         """Send a message via the Gemini FastAPI service.
 
         Args:
             user_id: Unique identifier for the user.
-            message: The message text to send.
+            prompt: The user's message/prompt text.
+            context: Optional context containing tools, etc.
 
         Returns:
             The AI's response as a string.
 
         Raises:
-            ValueError: If user_id or message is empty.
+            ValueError: If user_id or prompt is empty.
 
         """
         if not user_id:
-            msg = "user_id cannot be empty"
-            raise ValueError(msg)
-        if not message:
-            msg = "message cannot be empty"
-            raise ValueError(msg)
+            raise ValueError("user_id cannot be empty")
+        if not prompt:
+            raise ValueError("prompt cannot be empty")
 
-        response = self.client.send_message_chat_post(
-            json_body={"user_id": user_id, "message": message},
+        request_data: dict[str, Any] = {
+            "user_id": user_id,
+            "prompt": prompt,
+        }
+
+        if context and "tools" in context:
+            request_data["tools"] = context["tools"]
+
+        response = self.client.send_message_send_message_post(
+            json_body=request_data,
         )
-        return response.response
+        return response.text
 
-    def get_conversation_history(self, user_id: str) -> list[MessageImpl]:
-        """Retrieve conversation history via the Gemini FastAPI service.
+    def extract_tool_calls(self, response: str) -> List[ToolCall]:
+        """Extract tool calls from response.
 
         Args:
-            user_id: Unique identifier for the user.
+            response: The text response from send_message.
 
         Returns:
-            A list of MessageImpl objects representing the conversation history.
-
-        Raises:
-            ValueError: If user_id is empty.
+            List of ToolCall objects. Empty list if no tools were called.
 
         """
-        if not user_id:
-            msg = "user_id cannot be empty"
-            raise ValueError(msg)
-
-        response = self.client.get_conversation_history_history_user_id_get(
-            user_id=user_id,
-        )
-        if hasattr(response, "messages") and response.messages:
-            return [
-                MessageImpl(
-                    role=msg.role,
-                    content=msg.content,
-                )
-                for msg in response.messages
-            ]
         return []
-
-    def clear_conversation(self, user_id: str) -> bool:
-        """Clear conversation history via the Gemini FastAPI service.
-
-        Args:
-            user_id: Unique identifier for the user.
-
-        Returns:
-            True if the conversation was successfully cleared.
-
-        Raises:
-            ValueError: If user_id is empty.
-
-        """
-        if not user_id:
-            msg = "user_id cannot be empty"
-            raise ValueError(msg)
-
-        response = self.client.clear_conversation_history_user_id_delete(
-            user_id=user_id,
-        )
-        return response.cleared if hasattr(response, "cleared") else True
