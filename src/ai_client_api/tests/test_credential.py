@@ -113,6 +113,7 @@ class TestResolveApiKey:
         )
         assert result == "provider_key"
 
+    @patch.dict(os.environ, {}, clear=True)
     def test_credential_manager_fallback(self) -> None:
         """Test credential manager as fallback."""
         manager = ConcreteCredentialManager()
@@ -177,7 +178,7 @@ class TestResolveApiKey:
 
     def test_unified_key_strips_whitespace(self) -> None:
         """Test that unified key strips whitespace."""
-        with patch.dict(os.environ, {"AI_API_KEY": "  unified_with_spaces  "}):
+        with patch.dict(os.environ, {"AI_API_KEY": "  unified_with_spaces  "}, clear=True):
             result = resolve_api_key(
                 user_id="user1",
                 provider="gemini",
