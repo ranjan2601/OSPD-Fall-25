@@ -1,54 +1,69 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="AuthCallbackResponse")
+from ..types import UNSET, Unset
+
+T = TypeVar("T", bound="HealthCheckResponse")
 
 
 @_attrs_define
-class AuthCallbackResponse:
-    """
+class HealthCheckResponse:
+    """Response model for health check endpoint.
+
     Attributes:
-        user_id (str):
-        status (str):
+        service (str): Service name
+        status (str | Unset): Service health status Default: 'healthy'.
+        version (str | Unset): Service version Default: '1.0.0'.
     """
 
-    user_id: str
-    status: str
+    service: str
+    status: str | Unset = "healthy"
+    version: str | Unset = "1.0.0"
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        user_id = self.user_id
+        service = self.service
 
         status = self.status
+
+        version = self.version
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "user_id": user_id,
-                "status": status,
+                "service": service,
             }
         )
+        if status is not UNSET:
+            field_dict["status"] = status
+        if version is not UNSET:
+            field_dict["version"] = version
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        user_id = d.pop("user_id")
+        service = d.pop("service")
 
-        status = d.pop("status")
+        status = d.pop("status", UNSET)
 
-        auth_callback_response = cls(
-            user_id=user_id,
+        version = d.pop("version", UNSET)
+
+        health_check_response = cls(
+            service=service,
             status=status,
+            version=version,
         )
 
-        auth_callback_response.additional_properties = d
-        return auth_callback_response
+        health_check_response.additional_properties = d
+        return health_check_response
 
     @property
     def additional_keys(self) -> list[str]:

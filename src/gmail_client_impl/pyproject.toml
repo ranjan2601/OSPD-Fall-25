@@ -47,5 +47,3 @@ extend = "../../pyproject.toml"
 [tool.ruff.lint]
 ignore = []
 
-[tool.uv.sources]
-mail-client-api = { workspace = true }

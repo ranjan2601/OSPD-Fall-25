@@ -4,9 +4,9 @@ This module defines the API endpoints for the shared AI Service interface.
 """
 
 import logging
-import os
 from typing import Any
 
+from ai_client_api.credential import resolve_api_key
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -78,12 +78,16 @@ async def send_message(request: SendMessageRequest) -> SendMessageResponse:
     if not request.prompt:
         raise HTTPException(status_code=400, detail="prompt is required")
 
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
+    try:
+        api_key = resolve_api_key(
+            user_id=request.user_id,
+            provider="gemini",
+        )
+    except ValueError as e:
         raise HTTPException(
             status_code=500,
-            detail="GEMINI_API_KEY environment variable not set",
-        )
+            detail=str(e),
+        ) from e
 
     try:
         context: dict[str, Any] | None = None

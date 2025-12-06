@@ -1,30 +1,28 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.health_check_health_get_response_health_check_health_get import (
-    HealthCheckHealthGetResponseHealthCheckHealthGet,
-)
+from ...models.read_root_get_response_read_root_get import ReadRootGetResponseReadRootGet
 from ...types import Response
 
 
 def _get_kwargs() -> dict[str, Any]:
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/health",
+        "url": "/",
     }
 
     return _kwargs
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[HealthCheckHealthGetResponseHealthCheckHealthGet]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ReadRootGetResponseReadRootGet | None:
     if response.status_code == 200:
-        response_200 = HealthCheckHealthGetResponseHealthCheckHealthGet.from_dict(response.json())
+        response_200 = ReadRootGetResponseReadRootGet.from_dict(response.json())
 
         return response_200
 
@@ -35,8 +33,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[HealthCheckHealthGetResponseHealthCheckHealthGet]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ReadRootGetResponseReadRootGet]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -47,16 +45,18 @@ def _build_response(
 
 def sync_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Response[HealthCheckHealthGetResponseHealthCheckHealthGet]:
-    """Health Check
+    client: AuthenticatedClient | Client,
+) -> Response[ReadRootGetResponseReadRootGet]:
+    """Read Root
+
+     Root endpoint returning service status.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HealthCheckHealthGetResponseHealthCheckHealthGet]
+        Response[ReadRootGetResponseReadRootGet]
     """
 
     kwargs = _get_kwargs()
@@ -70,16 +70,18 @@ def sync_detailed(
 
 def sync(
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Optional[HealthCheckHealthGetResponseHealthCheckHealthGet]:
-    """Health Check
+    client: AuthenticatedClient | Client,
+) -> ReadRootGetResponseReadRootGet | None:
+    """Read Root
+
+     Root endpoint returning service status.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HealthCheckHealthGetResponseHealthCheckHealthGet
+        ReadRootGetResponseReadRootGet
     """
 
     return sync_detailed(
@@ -89,16 +91,18 @@ def sync(
 
 async def asyncio_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Response[HealthCheckHealthGetResponseHealthCheckHealthGet]:
-    """Health Check
+    client: AuthenticatedClient | Client,
+) -> Response[ReadRootGetResponseReadRootGet]:
+    """Read Root
+
+     Root endpoint returning service status.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HealthCheckHealthGetResponseHealthCheckHealthGet]
+        Response[ReadRootGetResponseReadRootGet]
     """
 
     kwargs = _get_kwargs()
@@ -110,16 +114,18 @@ async def asyncio_detailed(
 
 async def asyncio(
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Optional[HealthCheckHealthGetResponseHealthCheckHealthGet]:
-    """Health Check
+    client: AuthenticatedClient | Client,
+) -> ReadRootGetResponseReadRootGet | None:
+    """Read Root
+
+     Root endpoint returning service status.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HealthCheckHealthGetResponseHealthCheckHealthGet
+        ReadRootGetResponseReadRootGet
     """
 
     return (

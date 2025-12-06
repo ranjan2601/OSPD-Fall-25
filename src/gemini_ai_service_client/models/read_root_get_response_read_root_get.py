@@ -1,63 +1,42 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="Message")
+T = TypeVar("T", bound="ReadRootGetResponseReadRootGet")
 
 
 @_attrs_define
-class Message:
-    """
-    Attributes:
-        role (str):
-        content (str):
-    """
+class ReadRootGetResponseReadRootGet:
+    """ """
 
-    role: str
-    content: str
-    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
+    additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        role = self.role
-
-        content = self.content
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "role": role,
-                "content": content,
-            }
-        )
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        role = d.pop("role")
+        read_root_get_response_read_root_get = cls()
 
-        content = d.pop("content")
-
-        message = cls(
-            role=role,
-            content=content,
-        )
-
-        message.additional_properties = d
-        return message
+        read_root_get_response_read_root_get.additional_properties = d
+        return read_root_get_response_read_root_get
 
     @property
     def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> str:
         return self.additional_properties[key]
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self, key: str, value: str) -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:

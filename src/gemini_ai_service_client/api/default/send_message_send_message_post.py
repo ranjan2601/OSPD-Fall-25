@@ -1,25 +1,25 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.auth_callback_request import AuthCallbackRequest
-from ...models.auth_callback_response import AuthCallbackResponse
 from ...models.http_validation_error import HTTPValidationError
+from ...models.send_message_request import SendMessageRequest
+from ...models.send_message_response import SendMessageResponse
 from ...types import Response
 
 
 def _get_kwargs(
     *,
-    body: AuthCallbackRequest,
+    body: SendMessageRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/auth/callback",
+        "url": "/send_message",
     }
 
     _kwargs["json"] = body.to_dict()
@@ -31,10 +31,10 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[AuthCallbackResponse, HTTPValidationError]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> HTTPValidationError | SendMessageResponse | None:
     if response.status_code == 200:
-        response_200 = AuthCallbackResponse.from_dict(response.json())
+        response_200 = SendMessageResponse.from_dict(response.json())
 
         return response_200
 
@@ -50,8 +50,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[AuthCallbackResponse, HTTPValidationError]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[HTTPValidationError | SendMessageResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -62,22 +62,22 @@ def _build_response(
 
 def sync_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
-    body: AuthCallbackRequest,
-) -> Response[Union[AuthCallbackResponse, HTTPValidationError]]:
-    """Handle Auth Callback
+    client: AuthenticatedClient | Client,
+    body: SendMessageRequest,
+) -> Response[HTTPValidationError | SendMessageResponse]:
+    """Send Message
 
-     Handle OAuth callback and store user credentials.
+     Send a message to the AI and receive a response.
 
     Args:
-        body (AuthCallbackRequest):
+        body (SendMessageRequest): Request model for sending a message to the AI.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[AuthCallbackResponse, HTTPValidationError]]
+        Response[HTTPValidationError | SendMessageResponse]
     """
 
     kwargs = _get_kwargs(
@@ -93,22 +93,22 @@ def sync_detailed(
 
 def sync(
     *,
-    client: Union[AuthenticatedClient, Client],
-    body: AuthCallbackRequest,
-) -> Optional[Union[AuthCallbackResponse, HTTPValidationError]]:
-    """Handle Auth Callback
+    client: AuthenticatedClient | Client,
+    body: SendMessageRequest,
+) -> HTTPValidationError | SendMessageResponse | None:
+    """Send Message
 
-     Handle OAuth callback and store user credentials.
+     Send a message to the AI and receive a response.
 
     Args:
-        body (AuthCallbackRequest):
+        body (SendMessageRequest): Request model for sending a message to the AI.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[AuthCallbackResponse, HTTPValidationError]
+        HTTPValidationError | SendMessageResponse
     """
 
     return sync_detailed(
@@ -119,22 +119,22 @@ def sync(
 
 async def asyncio_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
-    body: AuthCallbackRequest,
-) -> Response[Union[AuthCallbackResponse, HTTPValidationError]]:
-    """Handle Auth Callback
+    client: AuthenticatedClient | Client,
+    body: SendMessageRequest,
+) -> Response[HTTPValidationError | SendMessageResponse]:
+    """Send Message
 
-     Handle OAuth callback and store user credentials.
+     Send a message to the AI and receive a response.
 
     Args:
-        body (AuthCallbackRequest):
+        body (SendMessageRequest): Request model for sending a message to the AI.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[AuthCallbackResponse, HTTPValidationError]]
+        Response[HTTPValidationError | SendMessageResponse]
     """
 
     kwargs = _get_kwargs(
@@ -148,22 +148,22 @@ async def asyncio_detailed(
 
 async def asyncio(
     *,
-    client: Union[AuthenticatedClient, Client],
-    body: AuthCallbackRequest,
-) -> Optional[Union[AuthCallbackResponse, HTTPValidationError]]:
-    """Handle Auth Callback
+    client: AuthenticatedClient | Client,
+    body: SendMessageRequest,
+) -> HTTPValidationError | SendMessageResponse | None:
+    """Send Message
 
-     Handle OAuth callback and store user credentials.
+     Send a message to the AI and receive a response.
 
     Args:
-        body (AuthCallbackRequest):
+        body (SendMessageRequest): Request model for sending a message to the AI.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[AuthCallbackResponse, HTTPValidationError]
+        HTTPValidationError | SendMessageResponse
     """
 
     return (

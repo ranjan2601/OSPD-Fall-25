@@ -34,7 +34,7 @@ members = [
   "src/ai_client_api",
   "src/gemini_client_impl",
   "src/gemini_service",
-  "src/gemini_service_api_client",
+  "src/gemini_ai_service_client",
   "src/gemini_adapter",
 ]
 
@@ -56,15 +56,15 @@ ignore = [
 "**/test_*.py" = ["D100", "D101", "D102", "D103", "ANN001", "ANN002", "ANN003", "ANN201", "ANN202"]
 # Auto-generated clients - ignore all linting rules
 "src/mail_client_service_client/**/*.py" = ["ALL"]
-"src/gemini_service_api_client/**/*.py" = ["ALL"]
+"src/gemini_ai_service_client/**/*.py" = ["ALL"]
 
 [tool.mypy]
 strict = true
 explicit_package_bases = true # Required for src layout
-mypy_path = ["src/mail_client_api/src", "src/gmail_client_impl/src", "src/mail_client_service/src", "src/mail_client_service_client/src", "src/mail_client_adapter/src", "src/ai_client_api/src", "src/gemini_client_impl/src", "src/gemini_service/src", "src/gemini_service_api_client/src", "src/gemini_adapter/src"]
+mypy_path = ["src/mail_client_api/src", "src/gmail_client_impl/src", "src/mail_client_service/src", "src/mail_client_service_client/src", "src/mail_client_adapter/src", "src/ai_client_api/src", "src/gemini_client_impl/src", "src/gemini_service/src", "src/gemini_ai_service_client", "src/gemini_adapter/src"]
 ignore_missing_imports = false
 warn_unused_ignores = false
-exclude = ["tests/", ".*/tests/.*", "src/mail_client_service_client/", "src/gemini_service_api_client/", "src/gemini_client_impl/", "src/mail_client_service/", "src/gemini_adapter/", "src/test_app.py"]
+exclude = ["tests/", ".*/tests/.*", "src/mail_client_service_client/", "src/gemini_ai_service_client/", "src/gemini_client_impl/", "src/mail_client_service/", "src/gemini_adapter/", "src/test_app.py"]
 
 
 [tool.pytest.ini_options]
@@ -86,7 +86,7 @@ markers = [
 source = ["src"]
 # For CircleCI: mail_client_service requires external service, so omit it
 # Note: mail_client_adapter and gmail_client_impl can't be tested without the service
-omit = ["*/tests/*", "*/__main__.py", "*/generated/*", "*/mail_client_service_api_client/*", "*/gemini_service_api_client/*", "*/mail_client_service/*", "*/mail_client_adapter/*", "*/gmail_client_impl/*"]
+omit = ["*/tests/*", "*/__main__.py", "*/generated/*", "*/mail_client_service_api_client/*", "*/gemini_ai_service_client/*", "*/mail_client_service/*", "*/mail_client_adapter/*", "*/gmail_client_impl/*"]
 
 [tool.coverage.report]
 fail_under = 80 # Justification: CircleCI can only test modules without external services; full test suite (with service running) achieves 85%+

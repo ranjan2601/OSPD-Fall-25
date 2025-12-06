@@ -3,7 +3,8 @@
 from typing import Any, List, Optional
 
 from ai_client_api.client import AIService, ToolCall
-from gemini_service_api_client.gemini_ai_service_client import Client as GeminiHTTPClient
+from gemini_ai_service_client import Client as GeminiHTTPClient
+from gemini_ai_service_client.models import SendMessageRequest, ToolDefinition
 
 
 class GeminiServiceAdapter(AIService):
@@ -47,16 +48,25 @@ class GeminiServiceAdapter(AIService):
         if not prompt:
             raise ValueError("prompt cannot be empty")
 
-        request_data: dict[str, Any] = {
-            "user_id": user_id,
-            "prompt": prompt,
-        }
-
+        tools: list[ToolDefinition] | None = None
         if context and "tools" in context:
-            request_data["tools"] = context["tools"]
+            tools = [
+                ToolDefinition(
+                    name=tool["name"],
+                    description=tool["description"],
+                    parameters=tool.get("parameters", {}),
+                )
+                for tool in context["tools"]
+            ]
+
+        request = SendMessageRequest(
+            user_id=user_id,
+            prompt=prompt,
+            tools=tools,
+        )
 
         response = self.client.send_message_send_message_post(
-            json_body=request_data,
+            body=request,
         )
         return response.text
 

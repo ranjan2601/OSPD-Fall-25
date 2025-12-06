@@ -1,5 +1,5 @@
 [project]
-name = "gemini-service-api-client"
+name = "gemini-ai-service-client"
 version = "0.1.0"
 description = "Auto-generated client library for Gemini AI Service"
 requires-python = ">=3.11"

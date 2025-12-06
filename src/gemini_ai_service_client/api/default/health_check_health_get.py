@@ -1,38 +1,30 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.conversation_history_response import ConversationHistoryResponse
-from ...models.http_validation_error import HTTPValidationError
+from ...models.health_check_response import HealthCheckResponse
 from ...types import Response
 
 
-def _get_kwargs(
-    user_id: str,
-) -> dict[str, Any]:
+def _get_kwargs() -> dict[str, Any]:
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": f"/history/{user_id}",
+        "url": "/health",
     }
 
     return _kwargs
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[ConversationHistoryResponse, HTTPValidationError]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> HealthCheckResponse | None:
     if response.status_code == 200:
-        response_200 = ConversationHistoryResponse.from_dict(response.json())
+        response_200 = HealthCheckResponse.from_dict(response.json())
 
         return response_200
-
-    if response.status_code == 422:
-        response_422 = HTTPValidationError.from_dict(response.json())
-
-        return response_422
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -41,8 +33,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[ConversationHistoryResponse, HTTPValidationError]]:
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[HealthCheckResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -52,28 +44,22 @@ def _build_response(
 
 
 def sync_detailed(
-    user_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Response[Union[ConversationHistoryResponse, HTTPValidationError]]:
-    """Get Conversation History
+    client: AuthenticatedClient | Client,
+) -> Response[HealthCheckResponse]:
+    """Health Check
 
-     Retrieve conversation history for a user.
-
-    Args:
-        user_id (str):
+     Health check endpoint for monitoring service availability.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ConversationHistoryResponse, HTTPValidationError]]
+        Response[HealthCheckResponse]
     """
 
-    kwargs = _get_kwargs(
-        user_id=user_id,
-    )
+    kwargs = _get_kwargs()
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -83,54 +69,43 @@ def sync_detailed(
 
 
 def sync(
-    user_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Optional[Union[ConversationHistoryResponse, HTTPValidationError]]:
-    """Get Conversation History
+    client: AuthenticatedClient | Client,
+) -> HealthCheckResponse | None:
+    """Health Check
 
-     Retrieve conversation history for a user.
-
-    Args:
-        user_id (str):
+     Health check endpoint for monitoring service availability.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ConversationHistoryResponse, HTTPValidationError]
+        HealthCheckResponse
     """
 
     return sync_detailed(
-        user_id=user_id,
         client=client,
     ).parsed
 
 
 async def asyncio_detailed(
-    user_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Response[Union[ConversationHistoryResponse, HTTPValidationError]]:
-    """Get Conversation History
+    client: AuthenticatedClient | Client,
+) -> Response[HealthCheckResponse]:
+    """Health Check
 
-     Retrieve conversation history for a user.
-
-    Args:
-        user_id (str):
+     Health check endpoint for monitoring service availability.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[ConversationHistoryResponse, HTTPValidationError]]
+        Response[HealthCheckResponse]
     """
 
-    kwargs = _get_kwargs(
-        user_id=user_id,
-    )
+    kwargs = _get_kwargs()
 
     response = await client.get_async_httpx_client().request(**kwargs)
 
@@ -138,28 +113,23 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    user_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Optional[Union[ConversationHistoryResponse, HTTPValidationError]]:
-    """Get Conversation History
+    client: AuthenticatedClient | Client,
+) -> HealthCheckResponse | None:
+    """Health Check
 
-     Retrieve conversation history for a user.
-
-    Args:
-        user_id (str):
+     Health check endpoint for monitoring service availability.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[ConversationHistoryResponse, HTTPValidationError]
+        HealthCheckResponse
     """
 
     return (
         await asyncio_detailed(
-            user_id=user_id,
             client=client,
         )
     ).parsed
