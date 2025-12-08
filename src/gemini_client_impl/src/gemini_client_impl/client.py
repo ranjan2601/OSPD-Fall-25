@@ -1,14 +1,17 @@
-"""Google Gemini API implementation of AIService (HW3 version)."""
+"""Google Gemini API implementation of AIInterface aligned with OSS-APIs standard."""
 
-from typing import Any, Dict, Optional, List
+from typing import Any
 
 import ai_client_api
 import google.generativeai as genai
-from ai_client_api.client import AIService, ToolCall
+from ai_client_api.client import AIInterface
 
 
-class GeminiClient(AIService):
-    """Gemini implementation following the shared AIService interface."""
+class GeminiClient(AIInterface):
+    """Gemini implementation following the shared AIInterface contract.
+
+    Supports both conversational responses and structured output via JSON schema.
+    """
 
     def __init__(self, api_key: str) -> None:
         if not api_key:
@@ -20,42 +23,56 @@ class GeminiClient(AIService):
         genai.configure(api_key=api_key)
         self.model: Any = genai.GenerativeModel("gemini-2.0-flash")
 
-    def send_message(
+    def generate_response(
         self,
-        user_id: str,
-        prompt: str,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> str:
-        """Send a prompt to Gemini and return the model's response as text.
+        user_input: str,
+        system_prompt: str,
+        response_schema: dict[str, Any] | None = None,
+    ) -> str | dict[str, Any]:
+        """Generate a response from Gemini using structured output when needed.
 
         Args:
-            user_id: Required by interface, but not used for storage in HW3.
-            prompt: Text prompt from the user.
-            context: Optional dict containing tool definitions, conversation history, etc.
+            user_input: The user's message/input text.
+            system_prompt: System instruction for the model.
+            response_schema: Optional JSON schema dict for structured output.
+                If provided, Gemini will return a dict matching this schema.
+                If None, returns a conversational string.
 
         Returns:
-            A plain string response from the Gemini model.
-        """
+            A string (conversational) or dict (structured output).
 
-        if not user_id:
-            raise ValueError("user_id cannot be empty")
-        if not prompt:
-            raise ValueError("prompt cannot be empty")
+        Raises:
+            ValueError: If user_input or system_prompt is empty.
+            RuntimeError: If there's an error calling the Gemini API.
+        """
+        if not user_input:
+            raise ValueError("user_input cannot be empty")
+        if not system_prompt:
+            raise ValueError("system_prompt cannot be empty")
 
         try:
-            # Send prompt to Gemini (tool support added later)
-            response = self.model.generate_content(prompt)
-            return response.text or ""
+            if response_schema:
+                # Structured output mode: configure schema and parse as JSON
+                response = self.model.generate_content(
+                    [system_prompt, user_input],
+                    generation_config=genai.types.GenerationConfig(
+                        response_mime_type="application/json",
+                        response_schema=response_schema,
+                    ),
+                )
+                # Parse JSON response
+                import json
+
+                return json.loads(response.text)
+            else:
+                # Conversational mode: return plain text response
+                response = self.model.generate_content([system_prompt, user_input])
+                return response.text or ""
         except Exception as e:
             raise RuntimeError(f"Error calling Gemini API: {e}") from e
 
-    def extract_tool_calls(self, response: str) -> List[ToolCall]:
-        """Parse Gemini response for tool calls (empty stub for HW3)."""
-        # TODO: implement actual Gemini tool call parsing
-        return []
 
-
-def get_client_impl(user_id: str, api_key: str) -> ai_client_api.AIService:
+def get_client_impl(api_key: str) -> ai_client_api.AIInterface:
     """Factory for creating a GeminiClient instance."""
     return GeminiClient(api_key=api_key)
 

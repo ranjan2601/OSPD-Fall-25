@@ -1,6 +1,7 @@
-"""FastAPI routes for Gemini AI chat service.
+"""FastAPI routes for Gemini AI service aligned with OSS-APIs standard.
 
-This module defines the API endpoints for the shared AI Service interface.
+This module defines the API endpoints for the shared AIInterface,
+supporting both conversational and structured output modes.
 """
 
 import logging
@@ -20,35 +21,23 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-class ToolDefinition(BaseModel):
-    """Definition of a tool the AI can call."""
+class GenerateResponseRequest(BaseModel):
+    """Request model for generating a response from the AI."""
 
-    name: str = Field(..., description="Tool name")
-    description: str = Field(..., description="What the tool does")
-    parameters: dict[str, Any] = Field(
-        default_factory=dict,
-        description="JSON Schema for tool parameters",
-    )
-
-
-class SendMessageRequest(BaseModel):
-    """Request model for sending a message to the AI."""
-
-    user_id: str = Field(..., description="Unique identifier for the user")
-    prompt: str = Field(..., description="The user's message/prompt text")
-    tools: list[ToolDefinition] | None = Field(
+    user_input: str = Field(..., description="The user's input/prompt text")
+    system_prompt: str = Field(..., description="System instruction for the model")
+    response_schema: dict[str, Any] | None = Field(
         default=None,
-        description="Optional list of tool definitions",
+        description="Optional JSON schema for structured output",
     )
 
 
-class SendMessageResponse(BaseModel):
+class GenerateResponseResponse(BaseModel):
     """Response model from the AI service."""
 
-    text: str = Field(..., description="The AI's response text")
-    tool_calls: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description="List of tool calls from the response",
+    output: str | dict[str, Any] = Field(
+        ...,
+        description="The AI's response (string for conversational, dict for structured)",
     )
 
 
@@ -70,19 +59,21 @@ async def health_check() -> HealthCheckResponse:
     )
 
 
-@router.post("/send_message", response_model=SendMessageResponse)
-async def send_message(request: SendMessageRequest) -> SendMessageResponse:
-    """Send a message to the AI and receive a response."""
-    if not request.user_id:
-        raise HTTPException(status_code=400, detail="user_id is required")
-    if not request.prompt:
-        raise HTTPException(status_code=400, detail="prompt is required")
+@router.post("/generate", response_model=GenerateResponseResponse)
+async def generate_response(request: GenerateResponseRequest) -> GenerateResponseResponse:
+    """Generate a response from the AI with optional structured output.
+
+    Supports:
+    - Conversational mode: user_input + system_prompt, no schema
+    - Structured output mode: user_input + system_prompt + response_schema
+    """
+    if not request.user_input:
+        raise HTTPException(status_code=400, detail="user_input is required")
+    if not request.system_prompt:
+        raise HTTPException(status_code=400, detail="system_prompt is required")
 
     try:
-        api_key = resolve_api_key(
-            user_id=request.user_id,
-            provider="gemini",
-        )
+        api_key = resolve_api_key(provider="gemini")
     except ValueError as e:
         raise HTTPException(
             status_code=500,
@@ -90,41 +81,22 @@ async def send_message(request: SendMessageRequest) -> SendMessageResponse:
         ) from e
 
     try:
-        context: dict[str, Any] | None = None
-        if request.tools:
-            context = {"tools": [tool.model_dump() for tool in request.tools]}
+        service = ai_client_api.get_client(api_key=api_key)
 
-        service = ai_client_api.get_client(
-            user_id=request.user_id,
-            api_key=api_key,
+        output = service.generate_response(
+            user_input=request.user_input,
+            system_prompt=request.system_prompt,
+            response_schema=request.response_schema,
         )
 
-        response_text = service.send_message(
-            user_id=request.user_id,
-            prompt=request.prompt,
-            context=context,
-        )
-
-        tool_calls = service.extract_tool_calls(response_text)
-
-        return SendMessageResponse(
-            text=response_text,
-            tool_calls=[
-                {
-                    "tool_name": tc.tool_name,
-                    "tool_args": tc.tool_args,
-                    "tool_id": tc.tool_id,
-                }
-                for tc in tool_calls
-            ],
-        )
+        return GenerateResponseResponse(output=output)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
     except Exception as e:
-        logger.exception("Error sending message")
+        logger.exception("Error generating response")
         raise HTTPException(
             status_code=500,
-            detail=f"Error sending message: {e!s}",
+            detail=f"Error generating response: {e!s}",
         ) from e

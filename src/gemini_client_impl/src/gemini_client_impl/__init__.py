@@ -1,12 +1,8 @@
-"""Gemini implementation for the shared AIService interface."""
+"""Gemini implementation for the shared AIInterface aligned with OSS-APIs standard."""
 
-from .message import register as register_message
-from .tool_call import register as register_tool_call
 from .client import register as register_client
 
 
 def register() -> None:
-    """Register all Gemini implementations with ai_client_api."""
-    register_message()
-    register_tool_call()
+    """Register Gemini client implementation with ai_client_api."""
     register_client()

@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="SendMessageResponseToolCallsItem")
+from ..types import UNSET, Unset
+
+
+T = TypeVar("T", bound="GenerateResponseRequestResponseSchemaType0")
 
 
 @_attrs_define
-class SendMessageResponseToolCallsItem:
+class GenerateResponseRequestResponseSchemaType0:
     """ """
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -24,10 +27,10 @@ class SendMessageResponseToolCallsItem:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        send_message_response_tool_calls_item = cls()
+        generate_response_request_response_schema_type_0 = cls()
 
-        send_message_response_tool_calls_item.additional_properties = d
-        return send_message_response_tool_calls_item
+        generate_response_request_response_schema_type_0.additional_properties = d
+        return generate_response_request_response_schema_type_0
 
     @property
     def additional_keys(self) -> list[str]:

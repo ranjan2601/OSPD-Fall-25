@@ -1,25 +1,28 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
+from urllib.parse import quote
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...types import Response, UNSET
+from ... import errors
+
+from ...models.generate_response_request import GenerateResponseRequest
+from ...models.generate_response_response import GenerateResponseResponse
 from ...models.http_validation_error import HTTPValidationError
-from ...models.send_message_request import SendMessageRequest
-from ...models.send_message_response import SendMessageResponse
-from ...types import Response
+from typing import cast
 
 
 def _get_kwargs(
     *,
-    body: SendMessageRequest,
+    body: GenerateResponseRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/send_message",
+        "url": "/generate",
     }
 
     _kwargs["json"] = body.to_dict()
@@ -32,9 +35,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> HTTPValidationError | SendMessageResponse | None:
+) -> GenerateResponseResponse | HTTPValidationError | None:
     if response.status_code == 200:
-        response_200 = SendMessageResponse.from_dict(response.json())
+        response_200 = GenerateResponseResponse.from_dict(response.json())
 
         return response_200
 
@@ -51,7 +54,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[HTTPValidationError | SendMessageResponse]:
+) -> Response[GenerateResponseResponse | HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -63,21 +66,25 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
-    body: SendMessageRequest,
-) -> Response[HTTPValidationError | SendMessageResponse]:
-    """Send Message
+    body: GenerateResponseRequest,
+) -> Response[GenerateResponseResponse | HTTPValidationError]:
+    """Generate Response
 
-     Send a message to the AI and receive a response.
+     Generate a response from the AI with optional structured output.
+
+    Supports:
+    - Conversational mode: user_input + system_prompt, no schema
+    - Structured output mode: user_input + system_prompt + response_schema
 
     Args:
-        body (SendMessageRequest): Request model for sending a message to the AI.
+        body (GenerateResponseRequest): Request model for generating a response from the AI.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | SendMessageResponse]
+        Response[GenerateResponseResponse | HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
@@ -94,21 +101,25 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient | Client,
-    body: SendMessageRequest,
-) -> HTTPValidationError | SendMessageResponse | None:
-    """Send Message
+    body: GenerateResponseRequest,
+) -> GenerateResponseResponse | HTTPValidationError | None:
+    """Generate Response
 
-     Send a message to the AI and receive a response.
+     Generate a response from the AI with optional structured output.
+
+    Supports:
+    - Conversational mode: user_input + system_prompt, no schema
+    - Structured output mode: user_input + system_prompt + response_schema
 
     Args:
-        body (SendMessageRequest): Request model for sending a message to the AI.
+        body (GenerateResponseRequest): Request model for generating a response from the AI.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | SendMessageResponse
+        GenerateResponseResponse | HTTPValidationError
     """
 
     return sync_detailed(
@@ -120,21 +131,25 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
-    body: SendMessageRequest,
-) -> Response[HTTPValidationError | SendMessageResponse]:
-    """Send Message
+    body: GenerateResponseRequest,
+) -> Response[GenerateResponseResponse | HTTPValidationError]:
+    """Generate Response
 
-     Send a message to the AI and receive a response.
+     Generate a response from the AI with optional structured output.
+
+    Supports:
+    - Conversational mode: user_input + system_prompt, no schema
+    - Structured output mode: user_input + system_prompt + response_schema
 
     Args:
-        body (SendMessageRequest): Request model for sending a message to the AI.
+        body (GenerateResponseRequest): Request model for generating a response from the AI.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | SendMessageResponse]
+        Response[GenerateResponseResponse | HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
@@ -149,21 +164,25 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
-    body: SendMessageRequest,
-) -> HTTPValidationError | SendMessageResponse | None:
-    """Send Message
+    body: GenerateResponseRequest,
+) -> GenerateResponseResponse | HTTPValidationError | None:
+    """Generate Response
 
-     Send a message to the AI and receive a response.
+     Generate a response from the AI with optional structured output.
+
+    Supports:
+    - Conversational mode: user_input + system_prompt, no schema
+    - Structured output mode: user_input + system_prompt + response_schema
 
     Args:
-        body (SendMessageRequest): Request model for sending a message to the AI.
+        body (GenerateResponseRequest): Request model for generating a response from the AI.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | SendMessageResponse
+        GenerateResponseResponse | HTTPValidationError
     """
 
     return (
