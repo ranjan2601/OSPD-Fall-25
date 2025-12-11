@@ -36,6 +36,14 @@ members = [
   "src/gemini_service",
   "src/gemini_ai_service_client",
   "src/gemini_adapter",
+  "src/chat-client-api",
+  "src/slack_impl",
+  "src/slack_service",
+  "src/slack_adapter",
+  "src/discord_client_impl",
+  "src/discord_client_service",
+  "src/discord_client_service_client",
+  "src/discord_client_service_adapter",
 ]
 
 [tool.ruff]

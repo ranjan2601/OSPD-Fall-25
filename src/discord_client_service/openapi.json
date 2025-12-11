@@ -1,0 +1,778 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Discord Client Service",
+    "description": "RESTful API for Discord chat operations with OAuth2 authentication",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Health check endpoint.\n\nReturns:\n    Dictionary with status information.",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Check Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "Get Openapi Schema",
+        "description": "Serve the OpenAPI schema.\n\nReturns:\n    The OpenAPI schema as a dictionary.",
+        "operationId": "get_openapi_schema_openapi_json_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Openapi Schema Openapi Json Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "get": {
+        "summary": "Initialize OAuth2 flow",
+        "description": "Initialize OAuth2 flow.",
+        "operationId": "oauth_login_auth_login_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthInitResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/status/{guild_id}": {
+      "get": {
+        "summary": "Check authentication status",
+        "description": "Check if guild is authenticated.",
+        "operationId": "auth_status_auth_status__guild_id__get",
+        "parameters": [
+          {
+            "name": "guild_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Guild Id"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "title": "Response Auth Status Auth Status  Guild Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout/{guild_id}": {
+      "delete": {
+        "summary": "Logout guild",
+        "description": "Logout guild by deleting stored credentials.",
+        "operationId": "oauth_logout_auth_logout__guild_id__delete",
+        "parameters": [
+          {
+            "name": "guild_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Guild Id"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/guilds/{guild_id}/channels": {
+      "get": {
+        "summary": "Get guild channels",
+        "description": "Get list of Discord channels for a guild.",
+        "operationId": "get_channels_guilds__guild_id__channels_get",
+        "parameters": [
+          {
+            "name": "guild_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Guild Id"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{guild_id}/channels/{channel_id}": {
+      "get": {
+        "summary": "Get channel info",
+        "description": "Get information about a specific Discord channel.",
+        "operationId": "get_channel__guild_id__channels__channel_id__get",
+        "parameters": [
+          {
+            "name": "guild_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Guild Id"
+            }
+          },
+          {
+            "name": "channel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Channel Id"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{guild_id}/channels/{channel_id}/messages": {
+      "get": {
+        "summary": "Get messages from channel",
+        "description": "Get messages from a Discord channel.",
+        "operationId": "get_messages__guild_id__channels__channel_id__messages_get",
+        "parameters": [
+          {
+            "name": "guild_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Guild Id"
+            }
+          },
+          {
+            "name": "channel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Channel Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Maximum number of messages",
+              "default": 10,
+              "title": "Limit"
+            },
+            "description": "Maximum number of messages"
+          },
+          {
+            "name": "session_id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Send message to channel",
+        "description": "Send a message to a Discord channel.",
+        "operationId": "send_message__guild_id__channels__channel_id__messages_post",
+        "parameters": [
+          {
+            "name": "guild_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Guild Id"
+            }
+          },
+          {
+            "name": "channel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Channel Id"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{guild_id}/channels/{channel_id}/messages/{message_id}": {
+      "delete": {
+        "summary": "Delete message",
+        "description": "Delete a message from a Discord channel.",
+        "operationId": "delete_message__guild_id__channels__channel_id__messages__message_id__delete",
+        "parameters": [
+          {
+            "name": "guild_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Guild Id"
+            }
+          },
+          {
+            "name": "channel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Channel Id"
+            }
+          },
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Message Id"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ChannelInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Channel ID"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Channel name"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "description": "Channel type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "type"
+        ],
+        "title": "ChannelInfo",
+        "description": "Discord channel information."
+      },
+      "ChannelListResponse": {
+        "properties": {
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/ChannelInfo"
+            },
+            "type": "array",
+            "title": "Channels",
+            "description": "List of channels"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "Number of channels returned"
+          }
+        },
+        "type": "object",
+        "required": [
+          "channels",
+          "count"
+        ],
+        "title": "ChannelListResponse",
+        "description": "List of Discord channels."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "MessageDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Message ID"
+          },
+          "channel_id": {
+            "type": "string",
+            "title": "Channel Id",
+            "description": "Channel ID"
+          },
+          "author_id": {
+            "type": "string",
+            "title": "Author Id",
+            "description": "Author user ID"
+          },
+          "author_name": {
+            "type": "string",
+            "title": "Author Name",
+            "description": "Author display name"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content",
+            "description": "Message content"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "Message timestamp"
+          },
+          "edited_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edited Timestamp",
+            "description": "Edit timestamp if edited"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "channel_id",
+          "author_id",
+          "author_name",
+          "content",
+          "timestamp"
+        ],
+        "title": "MessageDetail",
+        "description": "Discord message details."
+      },
+      "MessageListResponse": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/MessageDetail"
+            },
+            "type": "array",
+            "title": "Messages",
+            "description": "List of messages"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "Number of messages returned"
+          }
+        },
+        "type": "object",
+        "required": [
+          "messages",
+          "count"
+        ],
+        "title": "MessageListResponse",
+        "description": "List of Discord messages."
+      },
+      "OAuthInitResponse": {
+        "properties": {
+          "authorization_url": {
+            "type": "string",
+            "title": "Authorization Url",
+            "description": "URL to redirect user for OAuth"
+          }
+        },
+        "type": "object",
+        "required": [
+          "authorization_url"
+        ],
+        "title": "OAuthInitResponse",
+        "description": "OAuth2 initialization response."
+      },
+      "OperationResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Operation status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Status message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "OperationResponse",
+        "description": "Generic operation response."
+      },
+      "SendMessageRequest": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Content",
+            "description": "Message content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "SendMessageRequest",
+        "description": "Request to send a message."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
