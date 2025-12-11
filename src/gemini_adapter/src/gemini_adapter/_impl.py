@@ -1,101 +1,58 @@
-"""Adapter implementation connecting abstract API to Gemini FastAPI service."""
+"""Adapter implementation connecting AIInterface to Gemini FastAPI service.
 
-from ai_client_api.client import AIClient
-from gemini_impl.message import MessageImpl
-from gemini_service_api_client.gemini_ai_service_client import Client as GeminiHTTPClient
+This adapter implements the AIInterface contract while delegating all calls
+to the auto-generated Gemini service HTTP client.
+"""
+
+from typing import Any
+
+from ai_client_api.client import AIInterface
+from gemini_ai_service_client import Client as GeminiHTTPClient
+from gemini_ai_service_client.models import GenerateResponseRequest
 
 
-class GeminiServiceAdapter(AIClient):
-    """Adapter that connects the abstract Gemini API to the FastAPI service via HTTP.
-
-    This adapter implements the AIClient interface while delegating all calls
-    to the auto-generated Gemini service HTTP client.
-    """
+class GeminiServiceAdapter(AIInterface):
+    """Adapter that connects the AIInterface to the Gemini FastAPI service via HTTP."""
 
     def __init__(self, base_url: str = "http://127.0.0.1:8000") -> None:
         """Initialize the adapter.
 
         Args:
             base_url: Base URL of the Gemini FastAPI service.
-                     Defaults to localhost:8000.
 
         """
         self.client = GeminiHTTPClient(base_url=base_url)
 
-    def send_message(self, user_id: str, message: str) -> str:
-        """Send a message via the Gemini FastAPI service.
+    def generate_response(
+        self,
+        user_input: str,
+        system_prompt: str,
+        response_schema: dict[str, Any] | None = None,
+    ) -> str | dict[str, Any]:
+        """Generate a response via the Gemini FastAPI service.
 
         Args:
-            user_id: Unique identifier for the user.
-            message: The message text to send.
+            user_input: The user's input/prompt text.
+            system_prompt: System instruction for the model.
+            response_schema: Optional JSON schema for structured output.
 
         Returns:
-            The AI's response as a string.
+            A string (conversational) or dict (structured output).
 
         Raises:
-            ValueError: If user_id or message is empty.
+            ValueError: If user_input or system_prompt is empty.
 
         """
-        if not user_id:
-            msg = "user_id cannot be empty"
-            raise ValueError(msg)
-        if not message:
-            msg = "message cannot be empty"
-            raise ValueError(msg)
+        if not user_input:
+            raise ValueError("user_input cannot be empty")
+        if not system_prompt:
+            raise ValueError("system_prompt cannot be empty")
 
-        response = self.client.send_message_chat_post(
-            json_body={"user_id": user_id, "message": message},
+        request = GenerateResponseRequest(
+            user_input=user_input,
+            system_prompt=system_prompt,
+            response_schema=response_schema,
         )
-        return response.response
 
-    def get_conversation_history(self, user_id: str) -> list[MessageImpl]:
-        """Retrieve conversation history via the Gemini FastAPI service.
-
-        Args:
-            user_id: Unique identifier for the user.
-
-        Returns:
-            A list of MessageImpl objects representing the conversation history.
-
-        Raises:
-            ValueError: If user_id is empty.
-
-        """
-        if not user_id:
-            msg = "user_id cannot be empty"
-            raise ValueError(msg)
-
-        response = self.client.get_conversation_history_history_user_id_get(
-            user_id=user_id,
-        )
-        if hasattr(response, "messages") and response.messages:
-            return [
-                MessageImpl(
-                    role=msg.role,
-                    content=msg.content,
-                )
-                for msg in response.messages
-            ]
-        return []
-
-    def clear_conversation(self, user_id: str) -> bool:
-        """Clear conversation history via the Gemini FastAPI service.
-
-        Args:
-            user_id: Unique identifier for the user.
-
-        Returns:
-            True if the conversation was successfully cleared.
-
-        Raises:
-            ValueError: If user_id is empty.
-
-        """
-        if not user_id:
-            msg = "user_id cannot be empty"
-            raise ValueError(msg)
-
-        response = self.client.clear_conversation_history_user_id_delete(
-            user_id=user_id,
-        )
-        return response.cleared if hasattr(response, "cleared") else True
+        response = self.client.generate_response_generate_post(body=request)
+        return response.output

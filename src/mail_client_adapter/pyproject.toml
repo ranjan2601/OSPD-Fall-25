@@ -15,10 +15,6 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/mail_client_adapter"]
 
-[tool.uv.sources]
-mail-client-api = { workspace = true }
-mail-client-service-client = { workspace = true }
-
 [tool.ruff]
 line-length = 100
 target-version = "py311"

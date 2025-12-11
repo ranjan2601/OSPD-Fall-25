@@ -1,111 +1,57 @@
-"""Abstract interface for AI chat service clients.
+"""Abstract interface for AI service clients aligned with OSS-APIs standard.
 
-This module defines the contract that all AI chat service implementations
-must follow, independent of the underlying AI provider (e.g., Gemini, OpenAI).
+This module defines the contract that all AI service implementations must follow,
+independent of the underlying AI provider (e.g., Gemini, OpenAI).
+
+Implements structured output pattern: AI returns either conversational strings
+or structured data matching a provided JSON schema.
 """
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 
-class Message(ABC):
-    """Abstract base class representing a message in a conversation."""
+class AIInterface(ABC):
+    """Abstract base class for AI service implementations.
 
-    @property
-    @abstractmethod
-    def role(self) -> str:
-        """Return the role of the message sender ("user" or "assistant")."""
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def content(self) -> str:
-        """Return the text content of the message."""
-        raise NotImplementedError
-
-
-class AIClient(ABC):
-    """Abstract base class for AI chat service clients.
-
-    Defines the contract for interacting with an AI chat service,
-    independent of the specific provider implementation.
+    Defines the contract for interacting with an AI service,
+    supporting both conversational and structured output modes.
     """
 
     @abstractmethod
-    def send_message(self, user_id: str, message: str) -> str:
-        """Send a message and get a response from the AI.
+    def generate_response(
+        self,
+        user_input: str,
+        system_prompt: str,
+        response_schema: dict[str, Any] | None = None,
+    ) -> str | dict[str, Any]:
+        """Generate a response from the AI.
 
         Args:
-            user_id: Unique identifier for the user.
-            message: The message text to send.
+            user_input: The text provided by the user.
+            system_prompt: The instruction set (e.g., "You are a helpful assistant...").
+            response_schema: An optional JSON schema (dict).
+                If provided, the AI must return a structured Dict matching this schema.
+                If None, the AI returns a conversational String.
 
         Returns:
-            The AI's response as a string.
+            A string (conversational response) or a Dict (structured output).
 
         Raises:
-            ValueError: If user_id or message is empty.
+            ValueError: If user_input or system_prompt is empty.
             RuntimeError: If there's an error communicating with the AI service.
 
         """
 
-    @abstractmethod
-    def get_conversation_history(self, user_id: str) -> list["Message"]:
-        """Retrieve the conversation history for a user.
 
-        Args:
-            user_id: Unique identifier for the user.
-
-        Returns:
-            A list of Message objects representing the conversation history,
-            ordered from oldest to newest.
-
-        Raises:
-            ValueError: If user_id is empty.
-
-        """
-
-    @abstractmethod
-    def clear_conversation(self, user_id: str) -> bool:
-        """Clear the conversation history for a user.
-
-        Args:
-            user_id: Unique identifier for the user.
-
-        Returns:
-            True if the conversation was successfully cleared, False otherwise.
-
-        Raises:
-            ValueError: If user_id is empty.
-
-        """
-
-
-def get_client(user_id: str, api_key: str, db_path: str = "conversations.db") -> AIClient:
-    """Return an instance of an AI chat client.
+def get_client(api_key: str) -> AIInterface:
+    """Return an instance of an AI service.
 
     Args:
-        user_id: Unique identifier for the user.
         api_key: API key for the AI service.
-        db_path: Path to the conversation database. Defaults to "conversations.db".
 
     Returns:
-        AIClient: An instance conforming to the AIClient contract.
-
-    Raises:
-        NotImplementedError: If the function is not overridden by an implementation.
-
-    """
-    raise NotImplementedError
-
-
-def get_message(role: str, content: str) -> Message:
-    """Return an instance of a Message.
-
-    Args:
-        role: The role of the message sender ("user" or "assistant").
-        content: The text content of the message.
-
-    Returns:
-        Message: An instance conforming to the Message contract.
+        AIInterface: An instance conforming to the AIInterface contract.
 
     Raises:
         NotImplementedError: If the function is not overridden by an implementation.
