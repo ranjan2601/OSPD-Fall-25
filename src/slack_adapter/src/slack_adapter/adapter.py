@@ -34,7 +34,86 @@ if TYPE_CHECKING:
     from types import TracebackType
 
 # We rely on the shared API models from your project.
-from slack_api import Channel, Message
+from chat_client_api import Channel as ChannelBase
+from chat_client_api import Message as MessageBase
+
+
+# Concrete implementations for Slack
+@dataclass
+class SlackChannel(ChannelBase):
+    """Concrete Channel implementation for Slack."""
+
+    id: str
+    _name: str
+    _type: str = "text"
+
+    @property
+    def channel_id(self) -> str:
+        """Return the unique identifier of the channel."""
+        return self.id
+
+    @property
+    def name(self) -> str:
+        """Return the name of the channel."""
+        return self._name
+
+    @property
+    def channel_type(self) -> str:
+        """Return the type of channel (e.g., 'text', 'voice', 'dm')."""
+        return self._type
+
+
+@dataclass
+class SlackMessage(MessageBase):
+    """Concrete Message implementation for Slack."""
+
+    _id: str
+    _channel_id: str
+    _content: str
+    _sender_id: str
+    _timestamp: str
+    _sender_name: str = ""
+    _edited_timestamp: str | None = None
+
+    @property
+    def id(self) -> str:
+        """Return the unique identifier of the message."""
+        return self._id
+
+    @property
+    def channel_id(self) -> str:
+        """Return the ID of the channel where the message was sent."""
+        return self._channel_id
+
+    @property
+    def content(self) -> str:
+        """Return the text content of the message."""
+        return self._content
+
+    @property
+    def sender_id(self) -> str:
+        """Return the ID of the message author."""
+        return self._sender_id
+
+    @property
+    def sender_name(self) -> str:
+        """Return the display name of the message author."""
+        return self._sender_name
+
+    @property
+    def timestamp(self) -> str:
+        """Return the timestamp when the message was created (ISO 8601 format)."""
+        return self._timestamp
+
+    @property
+    def edited_timestamp(self) -> str | None:
+        """Return the timestamp when the message was last edited, or None if never edited."""
+        return self._edited_timestamp
+
+
+# For backward compatibility with tests
+Channel = SlackChannel
+Message = SlackMessage
 
 
 @runtime_checkable
@@ -98,7 +177,7 @@ def _as_channel(item: Mapping[str, object]) -> Channel:
     cid = str(item.get("id", ""))
     name = str(item.get("name", ""))
     # Channel dataclass is simple and stable.
-    return Channel(id=cid, name=name)
+    return Channel(id=cid, _name=name)
 
 
 def _as_message(item: Mapping[str, object]) -> Message:
@@ -118,33 +197,21 @@ def _as_message(item: Mapping[str, object]) -> Message:
     text = str(item.get("text", ""))
     channel_id = str(item.get("channel_id", ""))
     ts_val = item.get("ts")
-    ts = str(ts_val) if ts_val is not None else None
+    ts = str(ts_val) if ts_val is not None else ""
+    sender_id = str(item.get("sender_id", item.get("user", "")))
+    sender_name = str(item.get("sender_name", item.get("username", "")))
 
-    # Preferred: constructor that accepts message_id + channel_id + ts.
-    try:
-        return Message(
-            message_id=mid,
-            text=text,
-            channel_id=channel_id,
-            ts=ts,
-        )
-    except TypeError as first_error:
-        # Fallback: constructor that accepts text/channel_id[/ts].
-        try:
-            return Message(
-                text=text,
-                channel_id=channel_id,
-                ts=ts,
-            )
-        except TypeError:
-            try:
-                return Message(
-                    text=text,
-                    channel_id=channel_id,
-                )
-            except TypeError:
-                # If all constructor shapes fail, surface the first error.
-                raise first_error from None
+    # SlackMessage expects: _id, _channel_id, _content, _sender_id,
+    # _timestamp, _sender_name, _edited_timestamp
+    return Message(
+        _id=mid,
+        _channel_id=channel_id,
+        _content=text,
+        _sender_id=sender_id,
+        _timestamp=ts,
+        _sender_name=sender_name,
+        _edited_timestamp=None,
+    )
 
 
 def _health_from_json(data: Mapping[str, object]) -> bool:

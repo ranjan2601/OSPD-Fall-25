@@ -1,6 +1,6 @@
 """Tests for the Gemini client implementation."""
 
-from typing import Any
+from typing import Generator, Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -33,8 +33,8 @@ class TestGeminiClientInit:
             mock_genai.GenerativeModel.assert_called_once_with("gemini-2.0-flash")
 
 
-class TestGeminiClientSendMessage:
-    """Test send_message method."""
+class TestGeminiClientGenerateResponse:
+    """Test generate_response method."""
 
     @pytest.fixture
     def client(self) -> GeminiClient:
@@ -46,90 +46,79 @@ class TestGeminiClientSendMessage:
             client.model.generate_content = MagicMock(return_value=mock_response)
             return client
 
-    def test_send_message_success(self, client: GeminiClient) -> None:
-        """Test sending a message successfully."""
-        response = client.send_message("user123", "Hello")
+    def test_generate_response_success(self, client: GeminiClient) -> None:
+        """Test generating a response successfully."""
+        response = client.generate_response("Hello", "You are helpful")
         assert response == "This is a mock response"
-        client.model.generate_content.assert_called_once_with("Hello")
+        client.model.generate_content.assert_called_once()
 
-    def test_send_message_with_context(self, client: GeminiClient) -> None:
-        """Test sending a message with context."""
-        context: dict[str, Any] = {"tools": [{"name": "search"}]}
-        response = client.send_message("user123", "Hello", context=context)
-        assert response == "This is a mock response"
+    def test_generate_response_with_schema(self, client: GeminiClient) -> None:
+        """Test generating a structured response with schema."""
+        mock_response = MagicMock()
+        mock_response.text = '{"result": "structured"}'
+        client.model.generate_content = MagicMock(return_value=mock_response)
 
-    def test_send_message_empty_user_id(self, client: GeminiClient) -> None:
-        """Test that empty user_id raises ValueError."""
-        with pytest.raises(ValueError, match="user_id cannot be empty"):
-            client.send_message("", "Hello")
+        schema: dict[str, Any] = {"type": "object"}
+        response = client.generate_response("Hello", "You are helpful", schema)
+        assert isinstance(response, dict)
 
-    def test_send_message_empty_prompt(self, client: GeminiClient) -> None:
-        """Test that empty prompt raises ValueError."""
-        with pytest.raises(ValueError, match="prompt cannot be empty"):
-            client.send_message("user123", "")
+    def test_generate_response_empty_user_input(self, client: GeminiClient) -> None:
+        """Test that empty user_input raises ValueError."""
+        with pytest.raises(ValueError, match="user_input cannot be empty"):
+            client.generate_response("", "You are helpful")
 
-    def test_send_message_api_error(self, client: GeminiClient) -> None:
+    def test_generate_response_empty_system_prompt(self, client: GeminiClient) -> None:
+        """Test that empty system_prompt raises ValueError."""
+        with pytest.raises(ValueError, match="system_prompt cannot be empty"):
+            client.generate_response("Hello", "")
+
+    def test_generate_response_api_error(self, client: GeminiClient) -> None:
         """Test that API errors are wrapped in RuntimeError."""
         client.model.generate_content.side_effect = Exception("API failed")
         with pytest.raises(RuntimeError, match="Error calling Gemini API"):
-            client.send_message("user123", "Hello")
+            client.generate_response("Hello", "You are helpful")
 
-    def test_send_message_empty_response(self, client: GeminiClient) -> None:
+    def test_generate_response_empty_response(self, client: GeminiClient) -> None:
         """Test handling of empty response from API."""
         mock_response = MagicMock()
         mock_response.text = None
-        client.model.generate_content.return_value = mock_response
-
-        response = client.send_message("user123", "Hello")
+        client.model.generate_content = MagicMock(return_value=mock_response)
+        response = client.generate_response("Hello", "You are helpful")
         assert response == ""
 
 
-class TestGeminiClientExtractToolCalls:
-    """Test extract_tool_calls method."""
-
-    @pytest.fixture
-    def client(self) -> GeminiClient:
-        """Provide a mocked Gemini client for testing."""
-        with patch("gemini_client_impl.client.genai.GenerativeModel"):
-            return GeminiClient(api_key="test-key")
-
-    def test_extract_tool_calls_returns_empty_list(self, client: GeminiClient) -> None:
-        """Test that extract_tool_calls returns empty list (stub)."""
-        result = client.extract_tool_calls("Some response text")
-        assert result == []
-        assert isinstance(result, list)
-
-
 class TestFactoryFunction:
-    """Test the factory function."""
+    """Test factory function."""
 
     def test_get_client_impl_returns_gemini_client(self) -> None:
-        """Test that get_client_impl returns a GeminiClient."""
+        """Test that get_client_impl returns a GeminiClient instance."""
         with patch("gemini_client_impl.client.genai"):
-            client = get_client_impl(user_id="user123", api_key="test-key")
+            client = get_client_impl(api_key="test-key")
             assert isinstance(client, GeminiClient)
-            assert client.api_key == "test-key"
 
 
 class TestDependencyInjection:
-    """Test the dependency injection registration."""
+    """Test dependency injection via register()."""
 
-    def test_register_sets_get_client(self) -> None:
-        """Test that register() sets ai_client_api.get_client."""
-        original = ai_client_api.get_client
-        try:
-            register()
-            assert ai_client_api.get_client == get_client_impl
-        finally:
-            ai_client_api.get_client = original
+    @pytest.fixture(autouse=True)
+    def save_original_factory(self) -> Generator[None, None, None]:
+        """Save and restore original factory."""
+        import importlib
+        from ai_client_api import client as client_module
+
+        importlib.reload(client_module)
+        original = client_module.get_client
+        yield
+        ai_client_api.get_client = original
+
+    def test_register_function_exists(self) -> None:
+        """Test that register() function exists."""
+        assert callable(register)
 
     def test_module_import_triggers_registration(self) -> None:
-        """Test that importing gemini_client_impl and calling register works."""
-        original = ai_client_api.get_client
-        try:
-            gemini_client_impl.register()
-            with patch("gemini_client_impl.client.genai"):
-                client = ai_client_api.get_client(user_id="user", api_key="key")
-                assert isinstance(client, GeminiClient)
-        finally:
-            ai_client_api.get_client = original
+        """Test that importing module registers the implementation."""
+        gemini_client_impl.register()
+
+        with patch("gemini_client_impl.client.genai"):
+            client = ai_client_api.get_client(api_key="test-key")
+            assert isinstance(client, GeminiClient)

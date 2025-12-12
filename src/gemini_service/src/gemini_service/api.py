@@ -73,7 +73,7 @@ async def generate_response(request: GenerateResponseRequest) -> GenerateRespons
         raise HTTPException(status_code=400, detail="system_prompt is required")
 
     try:
-        api_key = resolve_api_key(provider="gemini")
+        api_key = resolve_api_key(user_id="service", provider="gemini")
     except ValueError as e:
         raise HTTPException(
             status_code=500,

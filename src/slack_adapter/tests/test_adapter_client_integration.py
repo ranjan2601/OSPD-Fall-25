@@ -68,9 +68,9 @@ def test_list_channels() -> None:
     class SmartHTTPXClient(DummyHTTPXClient):
         def request(
             self,
-            _method: str,
+            method: str,  # noqa: ARG002
             url: str,
-            **_kwargs: object,
+            **kwargs: object,  # noqa: ARG002
         ) -> DummyResponse:  # type: ignore[override]
             if url.endswith("/channels"):
                 return DummyResponseChannels()
@@ -107,9 +107,9 @@ def test_post_message() -> None:
     class SmartHTTPXClient(DummyHTTPXClient):
         def request(
             self,
-            _method: str,
+            method: str,  # noqa: ARG002
             url: str,
-            **_kwargs: object,
+            **kwargs: object,  # noqa: ARG002
         ) -> DummyResponse:  # type: ignore[override]
             if url.endswith("/messages"):
                 return DummyResponseMessage()
@@ -127,7 +127,7 @@ def test_post_message() -> None:
     adapter._client = SmartClient()  # noqa: SLF001
 
     message = adapter.post_message("C123", "Hello")
-    if message.text != "Hello":
-        pytest.fail("message text mismatch")
+    if message.content != "Hello":
+        pytest.fail("message content mismatch")
     if message.channel_id != "C123":
         pytest.fail("message channel_id mismatch")

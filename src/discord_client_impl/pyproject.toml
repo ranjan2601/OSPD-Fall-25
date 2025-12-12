@@ -48,6 +48,10 @@ line-length = 100  # Default formatting width
 target-version = "py311"  # Adjust based on actual Python version
 extend = "../../pyproject.toml"
 
+[tool.mypy]
+strict = true
+explicit_package_bases = true
+
 [tool.ruff.lint]
 ignore = []
 per-file-ignores = { "**/tests/*.py" = [

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import pytest
+from chat_client_api import Channel, Message  # runtime construction only
 
 from slack_adapter import ServiceAdapter, _get_id  # type: ignore[import]
-from slack_api import Channel, Message  # runtime construction only
 
 
 class OnlyGetPostHTTP:
@@ -18,20 +18,20 @@ class OnlyGetPostHTTP:
         """Return health or channels variations."""
         if url == "/health":
 
-            class R:
+            class HealthResp:
                 status_code = 200
 
                 def json(self) -> dict[str, object]:
                     return {"unexpected": "shape"}
 
-            return R()
+            return HealthResp()
         if url == "/channels":
 
-            class R:
+            class ChannelsResp:
                 def json(self) -> dict[str, object]:
                     return {"channels": [{"id": "C42", "name": "answer"}]}
 
-            return R()
+            return ChannelsResp()
 
         msg = "unexpected GET"
         raise AssertionError(msg)
@@ -39,10 +39,11 @@ class OnlyGetPostHTTP:
     def post(self, url: str, **kwargs: object) -> object:
         """Return a message echo for /messages."""
         if url == "/messages":
+            json_param = kwargs.get("json", {})
+            j = json_param if isinstance(json_param, dict) else {}
 
-            class R:
+            class MessageResp:
                 def json(self) -> dict[str, object]:
-                    j = kwargs.get("json", {}) if isinstance(kwargs, dict) else {}
                     return {
                         "message": {
                             "id": "m-42",
@@ -51,7 +52,7 @@ class OnlyGetPostHTTP:
                         },
                     }
 
-            return R()
+            return MessageResp()
 
         msg = "unexpected POST"
         raise AssertionError(msg)

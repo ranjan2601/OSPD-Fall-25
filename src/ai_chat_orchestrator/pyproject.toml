@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ai-chat-orchestrator"
+version = "0.1.0"
+description = "Orchestrator connecting AI services to chat platforms"
+requires-python = ">=3.11"
+dependencies = [
+    "ai-client-api",
+    "chat-client-api",
+    "gemini-client-impl",
+    "discord-client-impl",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-cov>=7.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ai_chat_orchestrator"]
+

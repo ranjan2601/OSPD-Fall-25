@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+from typing import Any
 
 from fastapi.testclient import TestClient
 from slack_impl.token_store import SQLiteTokenStore, TokenBundle
@@ -58,7 +59,7 @@ def test_build_slack_authorize_url_contains_expected_params() -> None:
     assert "scope=b1%2Cb2" in url
 
 
-def test_debug_login_url_uses_oauth_env(monkeypatch) -> None:
+def test_debug_login_url_uses_oauth_env(monkeypatch: Any) -> None:
     monkeypatch.setenv("OAUTH_CLIENT_ID", "cid")
     monkeypatch.setenv("OAUTH_CLIENT_SECRET", "secret")
     monkeypatch.setenv("OAUTH_REDIRECT_URI", "http://localhost/callback")
@@ -72,7 +73,7 @@ def test_debug_login_url_uses_oauth_env(monkeypatch) -> None:
     assert "state=xyz" in url
 
 
-def test_auth_login_redirects_to_slack(monkeypatch) -> None:
+def test_auth_login_redirects_to_slack(monkeypatch: Any) -> None:
     monkeypatch.setenv("OAUTH_CLIENT_ID", "cid")
     monkeypatch.setenv("OAUTH_CLIENT_SECRET", "secret")
     monkeypatch.setenv("OAUTH_REDIRECT_URI", "http://localhost/callback")
@@ -89,7 +90,7 @@ def test_auth_login_redirects_to_slack(monkeypatch) -> None:
 def _make_test_store() -> SQLiteTokenStore:
     """Create an in-memory SQLiteTokenStore and install it into the service module."""
     store = SQLiteTokenStore(":memory:")
-    slack_app_module._store = store
+    slack_app_module._store = store  # type: ignore[attr-defined]
     return store
 
 
@@ -97,26 +98,26 @@ class FakeWebClient:
     def __init__(self, token: str | None = None) -> None:
         self.token = token
 
-    def conversations_create(self, name: str, is_private: bool = False) -> dict:
+    def conversations_create(self, name: str, is_private: bool = False) -> dict[str, Any]:
         return {"channel": {"id": "C999", "name": name}}
 
-    def conversations_rename(self, channel: str, name: str) -> dict:
+    def conversations_rename(self, channel: str, name: str) -> dict[str, Any]:
         return {"channel": {"id": channel, "name": name}}
 
-    def conversations_archive(self, channel: str) -> dict:
+    def conversations_archive(self, channel: str) -> dict[str, Any]:
         return {}
 
-    def conversations_join(self, channel: str) -> dict:
+    def conversations_join(self, channel: str) -> dict[str, Any]:
         return {}
 
-    def conversations_invite(self, channel: str, users: str) -> dict:
+    def conversations_invite(self, channel: str, users: str) -> dict[str, Any]:
         return {}
 
-    def auth_revoke(self) -> dict:
+    def auth_revoke(self) -> dict[str, Any]:
         return {}
 
 
-def test_auth_callback_stores_tokens_and_me_uses_them(monkeypatch) -> None:
+def test_auth_callback_stores_tokens_and_me_uses_them(monkeypatch: Any) -> None:
     # Use the in-memory store and wire it into the slack_service.app module
     store = _make_test_store()
 
@@ -137,7 +138,7 @@ def test_auth_callback_stores_tokens_and_me_uses_them(monkeypatch) -> None:
             client_secret: str,
             code: str,
             redirect_uri: str,
-        ):
+        ) -> Any:
             # Simulate Slack's OAuth v2 response with both user and bot tokens
             class Resp:
                 def __init__(self) -> None:
@@ -197,7 +198,7 @@ def test_auth_callback_stores_tokens_and_me_uses_them(monkeypatch) -> None:
     assert me_data["bot_scopes"] == "channels:manage"
 
 
-def test_logout_revokes_and_deletes_tokens(monkeypatch) -> None:
+def test_logout_revokes_and_deletes_tokens(monkeypatch: Any) -> None:
     store = _make_test_store()
 
     # Seed both user and bot tokens
@@ -231,7 +232,7 @@ def test_logout_revokes_and_deletes_tokens(monkeypatch) -> None:
     assert store.load("bot:debug-anonymous") is None
 
 
-def test_create_channel_uses_bot_token(monkeypatch) -> None:
+def test_create_channel_uses_bot_token(monkeypatch: Any) -> None:
     store = _make_test_store()
     store.save(
         "bot:debug-anonymous",
@@ -254,7 +255,7 @@ def test_create_channel_uses_bot_token(monkeypatch) -> None:
     assert data["name"] == "team4"
 
 
-def test_rename_channel_uses_bot_token(monkeypatch) -> None:
+def test_rename_channel_uses_bot_token(monkeypatch: Any) -> None:
     store = _make_test_store()
     store.save(
         "bot:debug-anonymous",
@@ -277,7 +278,7 @@ def test_rename_channel_uses_bot_token(monkeypatch) -> None:
     assert data["name"] == "renamed"
 
 
-def test_archive_channel_uses_bot_token(monkeypatch) -> None:
+def test_archive_channel_uses_bot_token(monkeypatch: Any) -> None:
     store = _make_test_store()
     store.save(
         "bot:debug-anonymous",
@@ -297,7 +298,7 @@ def test_archive_channel_uses_bot_token(monkeypatch) -> None:
     assert resp.status_code == 204
 
 
-def test_invite_members_uses_bot_token(monkeypatch) -> None:
+def test_invite_members_uses_bot_token(monkeypatch: Any) -> None:
     store = _make_test_store()
     store.save(
         "bot:debug-anonymous",
@@ -320,7 +321,7 @@ def test_invite_members_uses_bot_token(monkeypatch) -> None:
     assert resp.status_code == 204
 
 
-def test_logout_without_any_tokens_is_noop(monkeypatch) -> None:
+def test_logout_without_any_tokens_is_noop(monkeypatch: Any) -> None:
     # Fresh in-memory store with no user/bot tokens
     store = _make_test_store()
 
@@ -339,7 +340,7 @@ def test_logout_without_any_tokens_is_noop(monkeypatch) -> None:
     assert store.load("bot:debug-anonymous") is None
 
 
-def test_create_channel_without_bot_token_forbidden(monkeypatch) -> None:
+def test_create_channel_without_bot_token_forbidden(monkeypatch: Any) -> None:
     # Fresh store: no bot token saved for this user
     _make_test_store()
 
@@ -358,7 +359,7 @@ def test_create_channel_without_bot_token_forbidden(monkeypatch) -> None:
     assert body["detail"] == "Bot token or required scopes are missing; re-auth with app scopes."
 
 
-def test_debug_login_url_builds_url(monkeypatch) -> None:
+def test_debug_login_url_builds_url(monkeypatch: Any) -> None:
     # Provide minimal OAuth env vars required by _require_oauth_env
     monkeypatch.setenv("OAUTH_CLIENT_ID", "cid")
     monkeypatch.setenv("OAUTH_CLIENT_SECRET", "secret")
@@ -377,7 +378,7 @@ def test_debug_login_url_builds_url(monkeypatch) -> None:
     assert "redirect_uri=" in url
 
 
-def test_all_messages_stub_mode_returns_seeded_messages(monkeypatch) -> None:
+def test_all_messages_stub_mode_returns_seeded_messages(monkeypatch: Any) -> None:
     # Fresh store; no tokens so require_user_token returns DUMMY_TOKEN
     _make_test_store()
     monkeypatch.setenv("SESSION_SECRET", "dev-secret")

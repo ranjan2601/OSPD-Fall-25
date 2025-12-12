@@ -25,5 +25,5 @@ target-version = "py312"
 [tool.mypy]
 python_version = "3.12"
 strict = true
-namespace_packages = false
-explicit_package_bases = false
+namespace_packages = true
+explicit_package_bases = true

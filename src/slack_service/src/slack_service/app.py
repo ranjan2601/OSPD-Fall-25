@@ -284,10 +284,12 @@ def _get_web_client_class() -> type[SlackSDKWebClient]:
     web_client_cls = getattr(app, "WebClient", None)
     if web_client_cls is None:
         return SlackSDKWebClient
-    return web_client_cls  # type: ignore[return-value]
+    # web_client_cls is set by tests, return it as-is
+    result: type[SlackSDKWebClient] = web_client_cls  # type: ignore[assignment]
+    return result
 
 
-def _client_from_token(access_token: str):
+def _client_from_token(access_token: str) -> Any:
     web_client_cls = _get_web_client_class()
     return web_client_cls(token=access_token)
 
@@ -416,12 +418,14 @@ def auth_callback(
         # Exchange code for both a bot token and a user token (when both scopes are requested).
         web_client_cls = _get_web_client_class()
         oauth_client = web_client_cls(token=None)  # no token needed for this call
-        data = oauth_client.oauth_v2_access(
+        response_data = oauth_client.oauth_v2_access(
             client_id=client_id,
             client_secret=client_secret,
             code=code,
             redirect_uri=redirect_uri,
         ).data
+        # Ensure data is dict not bytes
+        data: dict[str, Any] = response_data if isinstance(response_data, dict) else {}
     except SlackApiError as exc:
         log.exception("OAuth exchange failed: %s", exc)
         raise HTTPException(status_code=502, detail="OAuth exchange failed") from exc
@@ -836,7 +840,8 @@ def invite_members(
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     except SlackApiError as exc:  # pragma: no cover
-        err_code = getattr(exc, "response", {}).data.get("error")
+        response = getattr(exc, "response", {})
+        err_code = getattr(response, "data", {}).get("error") if hasattr(response, "data") else None
         if err_code in {
             "not_in_channel",  # bot not present
             "channel_not_found",  # bad ID or permission to see channel
