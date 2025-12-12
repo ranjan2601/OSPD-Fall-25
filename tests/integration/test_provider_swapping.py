@@ -1,16 +1,15 @@
 """Tests demonstrating provider swapping capability."""
 
-import sys
 
 import pytest
 from unittest.mock import Mock, patch
 
 
-@pytest.mark.integration
-@pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="Slack import fails locally due to SQLite, will run in CI",
-)
+# @pytest.mark.integration
+# @pytest.mark.skipif(
+#     sys.platform == "darwin",
+#     reason="Slack import fails locally due to SQLite, will run in CI",
+# )
 def test_same_ai_different_chat_providers() -> None:
     """Verify Gemini AI works with both Discord and Slack."""
     from ai_chat_orchestrator.factory import (

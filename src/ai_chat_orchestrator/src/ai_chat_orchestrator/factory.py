@@ -60,9 +60,9 @@ def create_gemini_slack_orchestrator(
     gemini_client_impl.register()
     ai_client = ai_client_api.get_client(api_key=gemini_api_key)
 
-    from slack_impl import SlackClient
+    from ai_chat_orchestrator.slack_chat_client import SlackChatClient
 
-    chat_client = SlackClient(base_url=slack_base_url, token=slack_token)
+    chat_client = SlackChatClient(base_url=slack_base_url, token=slack_token)
 
     return AIChatOrchestrator(
         ai_client=ai_client,

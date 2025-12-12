@@ -1,15 +1,14 @@
 """Integration tests for Gemini AI with Slack chat."""
 
-import sys
 
 import pytest
 from unittest.mock import Mock, patch
 
 
-pytestmark = pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="Slack tests skip locally due to SQLite dependency, will run in CI",
-)
+# pytestmark = pytest.mark.skipif(
+#     sys.platform == "darwin",
+#     reason="Slack tests skip locally due to SQLite dependency, will run in CI",
+# )
 
 
 @pytest.mark.integration
