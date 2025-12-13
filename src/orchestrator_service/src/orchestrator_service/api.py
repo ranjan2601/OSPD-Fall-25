@@ -176,7 +176,7 @@ async def send_discord_message(channel_id: str, request: SendMessageRequest) -> 
     try:
         orchestrator = get_discord_orchestrator()
         success = orchestrator.chat_client.send_message(channel_id, request.content)
-        return SendMessageResponse(success=success)
+        return SendMessageResponse(success=success, message_id=None)
     except Exception as e:
         logger.exception("Error sending Discord message")
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -231,7 +231,7 @@ async def send_slack_message(channel_id: str, request: SendMessageRequest) -> Se
     try:
         orchestrator = get_slack_orchestrator()
         success = orchestrator.chat_client.send_message(channel_id, request.content)
-        return SendMessageResponse(success=success)
+        return SendMessageResponse(success=success, message_id=None)
     except Exception as e:
         logger.exception("Error sending Slack message")
         raise HTTPException(status_code=500, detail=str(e)) from e
