@@ -9,7 +9,7 @@
 
 A professional-grade microservices architecture that orchestrates AI-powered chat across multiple platforms (Discord, Slack) with swappable providers and comprehensive telemetry.
 
-## 🚀 Live Demo
+## Live Demo
 
 **Deployed Service**: https://ai-chat-orchestrator-qvzc7dnvtq-uc.a.run.app
 
@@ -32,43 +32,8 @@ A professional-grade microservices architecture that orchestrates AI-powered cha
 **Health & Monitoring:**
 - `GET /health` - Service health check
 
-## 📋 Architecture Overview
 
-This project demonstrates a **component-based microservices architecture** with:
-
-1. **Provider Swapping**: Seamlessly switch between Discord ↔ Slack chat providers
-2. **AI Integration**: Google Gemini AI with structured output support
-3. **Telemetry**: Built-in metrics for latency, success/failure rates
-4. **Infrastructure as Code**: Terraform-managed GCP deployment
-5. **CI/CD**: Automated testing and deployment via CircleCI
-
-### Core Components
-
-```
-┌─────────────────────────────────────────────────────────┐
-│          AI-Chat Orchestrator Service (FastAPI)          │
-│                                                           │
-│  ┌──────────────┐  ┌──────────────┐  ┌───────────────┐  │
-│  │   Discord    │  │    Slack     │  │  Gemini AI    │  │
-│  │  Endpoints   │  │  Endpoints   │  │   Endpoints   │  │
-│  └──────┬───────┘  └──────┬───────┘  └───────┬───────┘  │
-│         │                 │                   │          │
-│         └─────────┬───────┴───────────────────┘          │
-│                   │                                      │
-│         ┌─────────▼─────────────┐                       │
-│         │  AIChatOrchestrator   │                       │
-│         │  - process_direct()   │                       │
-│         │  - get_metrics()      │                       │
-│         └─────────┬─────────────┘                       │
-│                   │                                      │
-│         ┌─────────▼─────────────┐                       │
-│         │   ChatInterface       │                       │
-│         │   (Discord/Slack)     │                       │
-│         └───────────────────────┘                       │
-└─────────────────────────────────────────────────────────┘
-```
-
-## 🎯 Key Features
+## Key Features
 
 ### 1. Provider Swapping
 Switch between Discord and Slack without changing application code:
@@ -105,7 +70,7 @@ response = ai_client.generate_response(
 )
 ```
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 ai-chat-orchestrator/
@@ -130,7 +95,7 @@ ai-chat-orchestrator/
 └── Dockerfile.orchestrator         # Multi-stage Docker build
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Python 3.11+
@@ -176,7 +141,7 @@ uv run mkdocs serve
 # Open http://localhost:8001
 ```
 
-## 🐳 Docker Deployment
+## Docker Deployment
 
 ### Build & Run Locally
 
@@ -209,7 +174,7 @@ terraform init
 terraform apply -var="access_token=$(gcloud auth print-access-token)"
 ```
 
-## 📊 Monitoring & Observability
+## Monitoring & Observability
 
 ### Telemetry Metrics
 
@@ -235,7 +200,7 @@ Dashboard visualizes:
 - Success vs failure rate trends
 - Per-service metrics (Discord/Slack)
 
-## 🧪 Testing Strategy
+## Testing Strategy
 
 ### Test Categories
 
@@ -256,7 +221,7 @@ def test_same_ai_different_chat_providers():
     assert discord_orch.ai_client == slack_orch.ai_client
 ```
 
-## 📚 Documentation
+## Documentation
 
 Full documentation available at:
 - **Live**: https://ai-chat-orchestrator-qvzc7dnvtq-uc.a.run.app/docs
@@ -274,7 +239,7 @@ Full documentation available at:
 - **Testing Guide**: Testing strategy and examples
 - **HW3 - AI Chat Orchestrator**: Assignment-specific documentation
 
-## 🛠️ Development
+## Development
 
 ### Code Quality Tools
 
@@ -319,7 +284,7 @@ Credentials stored in Secret Manager:
 - `discord-client-id`: Discord OAuth client ID
 - `discord-client-secret`: Discord OAuth secret
 
-## 📦 Workspace Structure
+## Workspace Structure
 
 This is a `uv` workspace with multiple Python packages:
 
@@ -339,7 +304,7 @@ members = [
 
 Each package is independently testable and reusable.
 
-## 🚦 CI/CD Pipeline
+## CI/CD Pipeline
 
 CircleCI automatically:
 1. Runs linting and type checking
@@ -347,17 +312,11 @@ CircleCI automatically:
 3. Validates provider swapping
 4. Publishes coverage reports
 
-## 🤝 Contributing
+## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
-## 📄 License
+## License
 
 This project is for educational purposes as part of the OSPD course at NYU.
 
-## 🔗 Related Links
-
-- **Live Service**: https://ai-chat-orchestrator-qvzc7dnvtq-uc.a.run.app
-- **API Docs**: https://ai-chat-orchestrator-qvzc7dnvtq-uc.a.run.app/docs
-- **CircleCI**: [View builds](https://app.circleci.com/pipelines/circleci/QJXxW5Kg3MhaRTXDr47FTf/bcb4e941-0b5f-479a-889b-9b98e69919c2)
-- **GCP Project**: gemini-chat-app-476416
