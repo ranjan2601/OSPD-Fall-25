@@ -263,7 +263,7 @@ uv run pytest -v
 4. Write integration tests
 5. Update documentation
 
-## 🔒 Security & Credentials
+## Security & Credentials
 
 ### Environment Variables
 
