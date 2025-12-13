@@ -1,6 +1,5 @@
 """Integration tests for Gemini AI with Slack chat."""
 
-
 import pytest
 from unittest.mock import Mock, patch
 

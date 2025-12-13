@@ -1,13 +1,13 @@
-# Gemini AI Service
+# Slack Client Implementation
 
-FastAPI service exposing Gemini AI chat functionality over HTTP.
+ChatInterface implementation for Slack platform.
 
-::: gemini_service.api
+::: slack_impl.slack_client
     options:
       show_root_heading: true
       show_source: false
 
-::: gemini_service.main
+::: slack_adapter.adapter
     options:
       show_root_heading: true
       show_source: false

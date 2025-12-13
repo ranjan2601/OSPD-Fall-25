@@ -1,6 +1,5 @@
 """Tests demonstrating provider swapping capability."""
 
-
 import pytest
 from unittest.mock import Mock, patch
 

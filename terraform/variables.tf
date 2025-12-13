@@ -24,3 +24,10 @@ variable "environment" {
   type        = string
   default     = "dev"
 }
+
+variable "access_token" {
+  description = "GCP access token for authentication"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

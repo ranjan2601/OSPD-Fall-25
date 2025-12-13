@@ -2,9 +2,9 @@
  * Terraform outputs for AI-Chat Orchestrator
  */
 
-output "gemini_service_url" {
-  description = "URL of the deployed Gemini AI service"
-  value       = google_cloud_run_service.gemini_service.status[0].url
+output "orchestrator_service_url" {
+  description = "URL of the deployed AI-Chat Orchestrator service"
+  value       = google_cloud_run_service.orchestrator_service.status[0].url
 }
 
 output "artifact_registry_url" {

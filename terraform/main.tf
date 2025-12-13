@@ -16,9 +16,10 @@ terraform {
 
 # Configure the Google Cloud Provider
 provider "google" {
-  project = var.project_id
-  region  = var.region
-  zone    = var.zone
+  project      = var.project_id
+  region       = var.region
+  zone         = var.zone
+  access_token = var.access_token
 }
 
 # Enable required GCP APIs
@@ -187,9 +188,9 @@ resource "google_monitoring_metric_descriptor" "failure_rate" {
   depends_on = [google_project_service.monitoring]
 }
 
-# Cloud Run service for Gemini AI Service
-resource "google_cloud_run_service" "gemini_service" {
-  name     = "gemini-ai-service"
+# Cloud Run service for AI-Chat Orchestrator Service
+resource "google_cloud_run_service" "orchestrator_service" {
+  name     = "ai-chat-orchestrator"
   location = var.region
 
   template {
@@ -197,7 +198,7 @@ resource "google_cloud_run_service" "gemini_service" {
       service_account_name = google_service_account.orchestrator_sa.email
 
       containers {
-        image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.ai_chat_repo.repository_id}/gemini-service:latest"
+        image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.ai_chat_repo.repository_id}/orchestrator-service:latest"
 
         env {
           name = "GEMINI_API_KEY"
@@ -207,6 +208,11 @@ resource "google_cloud_run_service" "gemini_service" {
               key  = "latest"
             }
           }
+        }
+
+        env {
+          name  = "SLACK_BOT_TOKEN"
+          value = ""
         }
 
         ports {
@@ -241,10 +247,10 @@ resource "google_cloud_run_service" "gemini_service" {
   ]
 }
 
-# Allow unauthenticated access to Gemini service (or configure as needed)
-resource "google_cloud_run_service_iam_member" "gemini_public" {
-  service  = google_cloud_run_service.gemini_service.name
-  location = google_cloud_run_service.gemini_service.location
+# Allow unauthenticated access to orchestrator service (or configure as needed)
+resource "google_cloud_run_service_iam_member" "orchestrator_public" {
+  service  = google_cloud_run_service.orchestrator_service.name
+  location = google_cloud_run_service.orchestrator_service.location
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
@@ -257,6 +263,8 @@ resource "google_monitoring_dashboard" "ai_chat_dashboard" {
       columns = 12
       tiles = [
         {
+          xPos   = 0
+          yPos   = 0
           width  = 6
           height = 4
           widget = {
@@ -278,6 +286,8 @@ resource "google_monitoring_dashboard" "ai_chat_dashboard" {
           }
         },
         {
+          xPos   = 6
+          yPos   = 0
           width  = 6
           height = 4
           widget = {

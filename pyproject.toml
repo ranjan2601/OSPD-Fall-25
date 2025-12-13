@@ -44,6 +44,7 @@ members = [
   "src/discord_client_service_client",
   "src/discord_client_service_adapter",
   "src/ai_chat_orchestrator",
+  "src/orchestrator_service",
 ]
 
 [tool.ruff]
