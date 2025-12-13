@@ -1,6 +1,7 @@
 import asyncio
 import types
 import sys
+from typing import Any
 import pytest
 
 from slack_impl.oauth import (
@@ -41,7 +42,7 @@ def test_exchange_code_for_tokens_success(monkeypatch: pytest.MonkeyPatch) -> No
         def raise_for_status(self) -> None:
             return
 
-        def json(self):
+        def json(self) -> dict[str, Any]:
             return {
                 "ok": True,
                 "access_token": "xoxb-abc",
@@ -50,16 +51,16 @@ def test_exchange_code_for_tokens_success(monkeypatch: pytest.MonkeyPatch) -> No
             }
 
     class DummyAsyncClient:
-        def __init__(self, *a, **k):
+        def __init__(self, *a: Any, **k: Any) -> None:
             pass
 
-        async def __aenter__(self):
+        async def __aenter__(self) -> "DummyAsyncClient":
             return self
 
-        async def __aexit__(self, exc_type, exc, tb):
+        async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:
             return False
 
-        async def post(self, url, data=None):
+        async def post(self, url: str, data: Any = None) -> DummyResp:
             assert "client_id" in data and "client_secret" in data and "code" in data
             return DummyResp()
 
@@ -94,20 +95,20 @@ def test_exchange_code_for_tokens_error_raises(monkeypatch: pytest.MonkeyPatch) 
             # HTTP-level success, but Slack-level failure
             return
 
-        def json(self):
+        def json(self) -> dict[str, Any]:
             return self._payload
 
     class DummyAsyncClient:
-        def __init__(self, *args, **kwargs) -> None:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             pass
 
-        async def __aenter__(self):
+        async def __aenter__(self) -> "DummyAsyncClient":
             return self
 
-        async def __aexit__(self, exc_type, exc, tb):
+        async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:
             return False
 
-        async def post(self, url, data=None):
+        async def post(self, url: str, data: Any = None) -> DummyResp:
             # Simulate posting to Slack OAuth token endpoint
             assert "client_id" in data and "client_secret" in data and "code" in data
             return DummyResp()

@@ -3,7 +3,7 @@
 from typing import Any
 
 import ai_client_api
-import google.generativeai as genai
+import google.generativeai as genai  # type: ignore[import-untyped]
 from ai_client_api.client import AIInterface
 
 
@@ -20,8 +20,8 @@ class GeminiClient(AIInterface):
         self.api_key = api_key
 
         # Initialize Gemini API
-        genai.configure(api_key=api_key)
-        self.model: Any = genai.GenerativeModel("gemini-2.0-flash")
+        genai.configure(api_key=api_key)  # type: ignore[attr-defined]
+        self.model: Any = genai.GenerativeModel("gemini-2.0-flash")  # type: ignore[attr-defined]
 
     def generate_response(
         self,
@@ -63,7 +63,8 @@ class GeminiClient(AIInterface):
                 # Parse JSON response
                 import json
 
-                return json.loads(response.text)
+                result: dict[str, Any] = json.loads(response.text)
+                return result
             else:
                 # Conversational mode: return plain text response
                 response = self.model.generate_content([system_prompt, user_input])

@@ -1,0 +1,27 @@
+# Dockerfile for Gemini AI Service
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install uv for dependency management
+RUN pip install uv
+
+# Copy workspace configuration
+COPY pyproject.toml ./
+COPY uv.lock ./
+
+# Copy all workspace source directories (uv needs all members for workspace resolution)
+COPY src ./src
+
+# Install dependencies (sync only packages needed for gemini-service)
+RUN uv sync --no-dev --package gemini-service
+
+# Expose port
+EXPOSE 8000
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8000
+
+# Run the service (activate venv and run uvicorn directly)
+CMD [".venv/bin/uvicorn", "gemini_service.api:app", "--host", "0.0.0.0", "--port", "8000"]

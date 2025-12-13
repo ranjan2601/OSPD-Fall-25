@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import pytest
+from chat_client_api import Channel, Message  # only for runtime construction
 
 from slack_adapter import (
     ServiceAdapter,
     ServiceBackedClient,
+    SlackMessage,
     _get_id,
 )  # type: ignore[import]
-from slack_api import Channel, Message  # only for runtime construction
 
 
 class DummyHTTPXClient:
@@ -19,7 +20,16 @@ class DummyHTTPXClient:
         """Track close() calls for context-manager coverage."""
         self.closed = False
 
-    def request(self, method: str, url: str, **kwargs: object) -> object:
+    def request(  # noqa: PLR0913
+        self,
+        method: str,
+        url: str,
+        *,
+        params: dict[str, str] | None = None,  # noqa: ARG002
+        json: dict[str, object] | None = None,
+        headers: dict[str, str] | None = None,  # noqa: ARG002
+        timeout: float | None = None,  # noqa: ARG002
+    ) -> object:
         """Return an object with attributes accessed by the adapter.
 
         Health: {"ok": True}
@@ -32,11 +42,11 @@ class DummyHTTPXClient:
                 self,
                 method: str,
                 url: str,
-                kwargs: dict[str, object],
+                json_data: dict[str, object] | None,
             ) -> None:
                 self.method = method
                 self.url = url
-                self.kwargs = kwargs
+                self.json_data = json_data
                 self.status_code = 200
 
             def json(self) -> dict[str, object]:
@@ -45,7 +55,7 @@ class DummyHTTPXClient:
                 if self.url == "/channels":
                     return {"channels": [{"id": "C9", "name": "gen"}]}
                 if self.url == "/messages":
-                    j = self.kwargs.get("json", {})
+                    j = self.json_data or {}
                     return {
                         "message": {
                             "id": "m-1",
@@ -55,7 +65,7 @@ class DummyHTTPXClient:
                     }
                 return {}
 
-        return R(method, url, dict(kwargs))
+        return R(method, url, json)
 
     def close(self) -> None:
         """Mark the client as closed."""
@@ -90,22 +100,23 @@ def test_health_list_and_post_paths() -> None:
 def test_get_id_and_public_client_close_and_identifier() -> None:
     """Cover _get_id variants, message_identifier, and context mgmt."""
     http = DummyHTTPXClient()
-    client = ServiceBackedClient(base_url="http://test", http=http)
+    client = ServiceBackedClient(base_url="http://test", http=http)  # type: ignore[arg-type]
 
     if _get_id({"id": "x"}) != "x":
         pytest.fail("_get_id did not return 'id'")
     if (
         _get_id(
-            Message(
-                message_id="m2",
-                text="t",
-                channel_id="c",
-                ts="1.0",
+            SlackMessage(
+                _id="m2",
+                _content="t",
+                _channel_id="c",
+                _sender_id="u1",
+                _timestamp="1.0",
             ),
         )
         != "m2"
     ):
-        pytest.fail("_get_id did not extract message_id from Message")
+        pytest.fail("_get_id did not extract message_id from SlackMessage")
 
     if client.message_identifier({"id": "ok"}) != "ok":
         pytest.fail("message_identifier happy path failed")

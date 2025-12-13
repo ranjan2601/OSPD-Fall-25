@@ -5,6 +5,7 @@ description = "Template repository for a mail client"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "slack-sdk>=3.39.0",
     "types-requests>=2.32.4.20250913",
 ]
 
@@ -18,19 +19,17 @@ dev = [
     "mypy>=1.17.0",
     "pymdown-extensions>=10.16.1",
     "pytest>=8.4.1",
+    "pytest-asyncio>=0.24.0",
     "pytest-cov>=6.2.1",
     "pytest-timeout>=2.1.0",
+    "python-dotenv>=1.0.0",
+    "respx>=0.21.0",
     "ruff>=0.12.7",
     "types-requests>=2.32.4.20250611",
 ]
 
 [tool.uv.workspace]
 members = [
-  "src/mail_client_api",
-  "src/gmail_client_impl",
-  "src/mail_client_service",
-  "src/mail_client_service_client",
-  "src/mail_client_adapter",
   "src/ai_client_api",
   "src/gemini_client_impl",
   "src/gemini_service",
@@ -44,6 +43,8 @@ members = [
   "src/discord_client_service",
   "src/discord_client_service_client",
   "src/discord_client_service_adapter",
+  "src/ai_chat_orchestrator",
+  "src/orchestrator_service",
 ]
 
 [tool.ruff]
@@ -69,10 +70,30 @@ ignore = [
 [tool.mypy]
 strict = true
 explicit_package_bases = true # Required for src layout
-mypy_path = ["src/mail_client_api/src", "src/gmail_client_impl/src", "src/mail_client_service/src", "src/mail_client_service_client/src", "src/mail_client_adapter/src", "src/ai_client_api/src", "src/gemini_client_impl/src", "src/gemini_service/src", "src/gemini_ai_service_client", "src/gemini_adapter/src"]
-ignore_missing_imports = false
+namespace_packages = true  # Handle nested src/src structures
+mypy_path = [
+    "src/ai_client_api/src",
+    "src/gemini_client_impl/src",
+    "src/gemini_adapter/src",
+    "src/gemini_service/src",
+    "src/chat-client-api/src",
+    "src/discord_client_impl/src",
+    "src/discord_client_service/src",
+    "src/discord_client_service_adapter/src",
+    "src/slack_impl/src",
+    "src/slack_adapter/src",
+    "src/slack_service/src",
+    "src/ai_chat_orchestrator/src",
+]
+ignore_missing_imports = true  # Allow missing imports from external packages
 warn_unused_ignores = false
-exclude = ["tests/", ".*/tests/.*", "src/mail_client_service_client/", "src/gemini_ai_service_client/", "src/gemini_client_impl/", "src/mail_client_service/", "src/gemini_adapter/", "src/test_app.py"]
+# Exclude auto-generated clients
+exclude = ["src/gemini_ai_service_client/", "src/discord_client_service_client/"]
+
+# Allow missing imports for specific external modules
+[[tool.mypy.overrides]]
+module = ["google.generativeai", "google.generativeai.*"]
+ignore_missing_imports = true
 
 
 [tool.pytest.ini_options]
@@ -92,12 +113,22 @@ markers = [
 
 [tool.coverage.run]
 source = ["src"]
-# For CircleCI: mail_client_service requires external service, so omit it
-# Note: mail_client_adapter and gmail_client_impl can't be tested without the service
-omit = ["*/tests/*", "*/__main__.py", "*/generated/*", "*/mail_client_service_api_client/*", "*/gemini_ai_service_client/*", "*/mail_client_service/*", "*/mail_client_adapter/*", "*/gmail_client_impl/*"]
+# Omit auto-generated clients, external services, and code requiring external dependencies
+omit = [
+    "*/tests/*",
+    "*/__main__.py",
+    "*/generated/*",
+    "*/mail_client_service_api_client/*",
+    "*/gemini_ai_service_client/*",
+    "*/discord_client_service_client/*",
+    "*/mail_client_service/*",
+    "*/mail_client_adapter/*",
+    "*/gmail_client_impl/*",
+    "*/discord_client_impl/auth_helper.py",
+]
 
 [tool.coverage.report]
-fail_under = 80 # Justification: CircleCI can only test modules without external services; full test suite (with service running) achieves 85%+
+fail_under = 80
 exclude_lines = [
     "pragma: no cover",
     "raise NotImplementedError",

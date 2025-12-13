@@ -38,7 +38,7 @@ class TestAICredentialManager:
     def test_cannot_instantiate_abstract_class(self) -> None:
         """Test that AICredentialManager cannot be instantiated directly."""
         with pytest.raises(TypeError):
-            AICredentialManager()
+            AICredentialManager()  # type: ignore[abstract]
 
     def test_concrete_implementation_works(self) -> None:
         """Test that concrete implementation works."""

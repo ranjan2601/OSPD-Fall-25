@@ -13,15 +13,15 @@ class DummyResp:
         if self.status_code >= 400:
             raise AssertionError("unexpected error path in test")
 
-    def json(self):
+    def json(self) -> Dict[str, Any]:
         return self._payload
 
 
 class DummyHTTP:
-    def __init__(self):
-        self.called = []
+    def __init__(self) -> None:
+        self.called: list[tuple[str, str, Dict[str, Any] | None]] = []
 
-    def get(self, url: str, params: Dict[str, Any] | None = None):
+    def get(self, url: str, params: Dict[str, Any] | None = None) -> DummyResp:
         self.called.append(("GET", url, params))
         if url == "/health":
             return DummyResp({"ok": True})
@@ -40,14 +40,15 @@ class DummyHTTP:
             )
         return DummyResp({})
 
-    def post(self, url: str, json: Dict[str, Any] | None = None):
+    def post(self, url: str, json: Dict[str, Any] | None = None) -> DummyResp:
         self.called.append(("POST", url, json))
         if url == "/chat.postMessage":
+            payload = json or {}
             return DummyResp(
                 {
                     "message": {
-                        "channel": json.get("channel"),
-                        "text": json.get("text"),
+                        "channel": payload.get("channel"),
+                        "text": payload.get("text"),
                         "ts": "3.0",
                     }
                 }
@@ -57,7 +58,7 @@ class DummyHTTP:
 
 def test_online_mode_paths() -> None:
     http = DummyHTTP()
-    c = SlackClient(base_url="http://service", token="tkn", http=http)  # online mode
+    c = SlackClient(base_url="http://service", token="tkn", http=http)  # type: ignore[arg-type]  # online mode
     assert c.offline is False
 
     # health online branch

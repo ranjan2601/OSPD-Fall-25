@@ -40,7 +40,7 @@ class SyncASGITransport(BaseTransport):
 
     def __init__(self, asgi_app: object) -> None:
         """Initialize the wrapper with a FastAPI/ASGI app."""
-        self._async = _ASGITransport(app=asgi_app)
+        self._async = _ASGITransport(app=asgi_app)  # type: ignore[arg-type]
 
     def handle_request(self, request: Request) -> Response:
         """Bridge to the async transport and return a sync Response."""
@@ -106,9 +106,9 @@ def test_post_message_returns_ts() -> None:
         msg = client.post_message("C001", "hello")
         if msg.channel_id != "C001":
             pytest.fail("Expected returned message.channel_id to equal 'C001'")
-        if not isinstance(msg.ts, str):
-            pytest.fail("Expected returned message.ts to be a string")
-        if len(msg.ts) == 0:
-            pytest.fail("Expected returned message.ts to be non-empty")
+        if not isinstance(msg.timestamp, str):
+            pytest.fail("Expected returned message.timestamp to be a string")
+        if len(msg.timestamp) == 0:
+            pytest.fail("Expected returned message.timestamp to be non-empty")
     finally:
         client.close()

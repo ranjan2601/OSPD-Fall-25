@@ -4,11 +4,12 @@
 
 from __future__ import annotations
 
+from chat_client_api import Message
+
 from slack_adapter import (  # type: ignore[import]
     ServiceBackedClient,
     SlackServiceBackedClient,
 )
-from slack_api import Message
 
 
 class _RespNonMapping:
@@ -22,14 +23,14 @@ class _RespNonMapping:
 
 class _HTTPNonMapping:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, str]] = []
+        self.calls: list[tuple[str, ...]] = []
 
     def request(self, method: str, url: str, **_kwargs: object) -> _RespNonMapping:
         self.calls.append((method, url))
         return _RespNonMapping()
 
     def close(self) -> None:
-        self.calls.append(("CLOSE", "", {}))
+        self.calls.append(("CLOSE", ""))
 
 
 def test_service_backed_health_with_non_mapping_json() -> None:
@@ -98,7 +99,7 @@ def test_slack_service_backed_uses_injected_http_client() -> None:
     message = client.post_message("C-extra", "hi-extra")
     assert isinstance(message, Message)
     assert message.channel_id == "C-extra"
-    assert "hi-extra" in message.text
+    assert "hi-extra" in message.content
 
     client.close()
     assert http.closed is True
