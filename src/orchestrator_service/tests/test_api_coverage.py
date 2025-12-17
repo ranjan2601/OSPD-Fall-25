@@ -1,11 +1,9 @@
 """Tests for orchestrator service API endpoints to increase coverage."""
 
 import os
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 
@@ -39,8 +37,8 @@ def mock_orchestrator():
 @pytest.fixture
 def client(mock_env_vars):
     """Create test client."""
-    from orchestrator_service.api import router
     from fastapi import FastAPI
+    from orchestrator_service.api import router
     
     app = FastAPI()
     app.include_router(router)

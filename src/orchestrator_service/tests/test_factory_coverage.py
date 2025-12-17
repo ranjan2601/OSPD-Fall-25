@@ -69,8 +69,9 @@ def test_get_discord_orchestrator_caches_instance(mock_get_client, mock_gemini, 
 @patch("orchestrator_service.api.resolve_api_key")
 def test_get_discord_orchestrator_missing_api_key(mock_resolve, mock_env):
     """Test Discord orchestrator with missing API key."""
-    from orchestrator_service import api
     from fastapi import HTTPException
+
+    from orchestrator_service import api
     
     api._discord_orchestrator = None
     mock_resolve.side_effect = ValueError("No API key")
@@ -125,8 +126,9 @@ def test_get_slack_orchestrator_caches_instance(mock_slack, mock_gemini, mock_en
 @patch("orchestrator_service.api.resolve_api_key")
 def test_get_slack_orchestrator_missing_api_key(mock_resolve, mock_env):
     """Test Slack orchestrator with missing API key."""
-    from orchestrator_service import api
     from fastapi import HTTPException
+
+    from orchestrator_service import api
     
     api._slack_orchestrator = None
     mock_resolve.side_effect = ValueError("No API key")
@@ -176,8 +178,9 @@ def test_get_jira_ticket_client_caches_instance(mock_adapter, mock_impl, mock_en
 @patch("orchestrator_service.api.TicketImpl")
 def test_get_jira_ticket_client_init_error(mock_impl, mock_env):
     """Test Jira ticket client with initialization error."""
-    from orchestrator_service import api
     from fastapi import HTTPException
+
+    from orchestrator_service import api
     
     api._jira_ticket_client = None
     mock_impl.side_effect = ValueError("Init failed")
@@ -221,8 +224,9 @@ def test_get_gtasks_ticket_client_caches_instance(mock_impl, mock_env):
 @patch("orchestrator_service.api.TicketsClient")
 def test_get_gtasks_ticket_client_init_error(mock_impl, mock_env):
     """Test Google Tasks ticket client with initialization error."""
-    from orchestrator_service import api
     from fastapi import HTTPException
+
+    from orchestrator_service import api
     
     api._gtasks_ticket_client = None
     mock_impl.side_effect = ValueError("Init failed")
