@@ -55,8 +55,9 @@ def get_message_impl(msg_id: str, raw_data: dict[str, str]) -> chat_client_api.M
     return DiscordMessage(raw_data)  # type: ignore[arg-type]
 
 
-def get_channel_impl(channel_id: str, raw_data: dict[str, str]) -> chat_client_api.Channel:
+def get_channel_impl(channel_id: str, raw_data: dict[str, str]) -> DiscordChannel:
     """Create a Discord channel instance.
+
 
     Args:
         channel_id: The channel ID (unused, kept for interface compatibility).
@@ -76,9 +77,9 @@ def register() -> None:
     to return Discord implementations.
 
     """
-    chat_client_api.get_client = get_client_impl
-    chat_client_api.get_message = get_message_impl
-    chat_client_api.get_channel = get_channel_impl
+    chat_client_api.get_client = get_client_impl  # type: ignore[attr-defined]
+    chat_client_api.get_message = get_message_impl  # type: ignore[attr-defined]
+    chat_client_api.get_channel = get_channel_impl  # type: ignore[attr-defined]
 
 
 # Auto-register on import (side-effect import pattern)

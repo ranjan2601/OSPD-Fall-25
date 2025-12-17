@@ -28,8 +28,9 @@ def test_successful_request_metrics() -> None:
 
     mock_chat = Mock()
     mock_message = Mock()
+    mock_message.id = "msg1"
     mock_message.content = "Hello"
-    mock_chat.get_message.return_value = mock_message
+    mock_chat.get_messages.return_value = [mock_message]
     mock_chat.send_message.return_value = True
 
     orchestrator = AIChatOrchestrator(ai_client=mock_ai, chat_client=mock_chat)
@@ -53,8 +54,9 @@ def test_failed_request_metrics() -> None:
 
     mock_chat = Mock()
     mock_message = Mock()
+    mock_message.id = "msg1"
     mock_message.content = "Hello"
-    mock_chat.get_message.return_value = mock_message
+    mock_chat.get_messages.return_value = [mock_message]
     mock_chat.send_message.return_value = False  # Simulate failure
 
     orchestrator = AIChatOrchestrator(ai_client=mock_ai, chat_client=mock_chat)
@@ -77,8 +79,9 @@ def test_exception_tracked_as_failure() -> None:
 
     mock_chat = Mock()
     mock_message = Mock()
+    mock_message.id = "msg1"
     mock_message.content = "Hello"
-    mock_chat.get_message.return_value = mock_message
+    mock_chat.get_messages.return_value = [mock_message]
 
     orchestrator = AIChatOrchestrator(ai_client=mock_ai, chat_client=mock_chat)
 
@@ -96,9 +99,21 @@ def test_multiple_requests_aggregate_metrics() -> None:
     mock_ai.generate_response.return_value = "AI response"
 
     mock_chat = Mock()
-    mock_message = Mock()
-    mock_message.content = "Hello"
-    mock_chat.get_message.return_value = mock_message
+
+    # Create different mock messages for each request
+    mock_msg1 = Mock()
+    mock_msg1.id = "msg1"
+    mock_msg1.content = "Hello"
+
+    mock_msg2 = Mock()
+    mock_msg2.id = "msg2"
+    mock_msg2.content = "Hello"
+
+    mock_msg3 = Mock()
+    mock_msg3.id = "msg3"
+    mock_msg3.content = "Hello"
+
+    mock_chat.get_messages.side_effect = [[mock_msg1], [mock_msg2], [mock_msg3]]
     mock_chat.send_message.side_effect = [True, True, False]  # 2 success, 1 failure
 
     orchestrator = AIChatOrchestrator(ai_client=mock_ai, chat_client=mock_chat)
@@ -160,8 +175,9 @@ def test_empty_message_tracked_as_failure() -> None:
     mock_ai = Mock()
     mock_chat = Mock()
     mock_message = Mock()
+    mock_message.id = "msg1"
     mock_message.content = ""  # Empty content
-    mock_chat.get_message.return_value = mock_message
+    mock_chat.get_messages.return_value = [mock_message]
 
     orchestrator = AIChatOrchestrator(ai_client=mock_ai, chat_client=mock_chat)
 

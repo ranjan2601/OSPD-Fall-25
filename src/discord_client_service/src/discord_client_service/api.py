@@ -329,12 +329,12 @@ async def get_messages(
         message_list = [
             MessageDetail(
                 id=msg.id,
-                channel_id=msg.channel_id,
+                channel_id=msg.channel_id,  # type: ignore[attr-defined]
                 sender_id=msg.sender_id,
-                sender_name=msg.sender_name,
+                sender_name=msg.sender_name,  # type: ignore[attr-defined]
                 content=msg.content,
-                timestamp=msg.timestamp,
-                edited_timestamp=msg.edited_timestamp,
+                timestamp=msg.timestamp,  # type: ignore[attr-defined]
+                edited_timestamp=msg.edited_timestamp,  # type: ignore[attr-defined]
             )
             for msg in messages
         ]

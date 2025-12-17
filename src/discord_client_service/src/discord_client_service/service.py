@@ -11,6 +11,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
+from dotenv import load_dotenv
 
 # Database-backed credential storage has been removed in favor of
 # an in-memory session-backed credential store implemented in
@@ -23,8 +24,6 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 try:
-    from dotenv import load_dotenv
-
     load_dotenv()
     logger.info("Loaded environment variables from .env file")
 except ImportError:

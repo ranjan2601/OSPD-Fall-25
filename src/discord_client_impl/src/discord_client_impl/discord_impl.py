@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 from authlib.integrations.httpx_client import OAuth2Client
-from chat_client_api.client import ChatInterface
+from chat_client_api import ChatInterface, Message
 from chat_client_api.exceptions import (
     AuthenticationError,
     ChannelNotFoundError,
@@ -16,7 +16,6 @@ from chat_client_api.exceptions import (
     MessageNotFoundError,
     MessageSendError,
 )
-from chat_client_api.message import Channel, Message
 
 from discord_client_impl.message_impl import DiscordChannel, DiscordMessage
 
@@ -222,6 +221,7 @@ class DiscordClient(ChatInterface):
     def get_message(self, channel_id: str, message_id: str) -> Message:
         """Retrieve a specific message from a channel.
 
+
         Args:
             channel_id: The ID of the channel containing the message.
             message_id: The ID of the message to retrieve.
@@ -351,14 +351,11 @@ class DiscordClient(ChatInterface):
             logger.exception("Failed to delete message")
             raise MessageDeleteError(f"Failed to delete message: {e}") from e
 
-    def get_channels(self) -> Iterator[Channel]:
+    def get_channels(self) -> Iterator[DiscordChannel]:
         """Retrieve all accessible channels.
 
-        Note: This returns DM channels for the authenticated user.
-        For guild channels, use get_guild_channels().
-
         Returns:
-            Iterator[Channel]: An iterator of available DM channels.
+            Iterator[DiscordChannel]: An iterator of available DM channels.
 
         """
         self._ensure_authenticated()
@@ -379,8 +376,10 @@ class DiscordClient(ChatInterface):
             logger.exception("Failed to get channels")
             raise ValueError(f"Failed to retrieve channels: {e}") from e
 
-    def get_channel(self, channel_id: str) -> Channel:
+    def get_channel(self, channel_id: str) -> DiscordChannel:
         """Retrieve information about a specific channel.
+
+        Note: This method is not part of the standardized ChatInterface.
 
         Args:
             channel_id: The ID of the channel to retrieve.
@@ -412,7 +411,7 @@ class DiscordClient(ChatInterface):
         """Close the HTTP client."""
         self._http_client.close()
 
-    def get_guild_channels(self, guild_id: str) -> Iterator[Channel]:
+    def get_guild_channels(self, guild_id: str) -> Iterator[DiscordChannel]:
         """Retrieve channels for a specific guild."""
         self._ensure_authenticated()
 

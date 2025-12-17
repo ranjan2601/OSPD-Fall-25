@@ -4,15 +4,20 @@ import logging
 import os
 from typing import Any
 
-from ai_chat_orchestrator.factory import (
-    create_gemini_discord_orchestrator,
-    create_gemini_slack_orchestrator,
-)
+import chat_client_api  # type: ignore[import]
+from ai_chat_orchestrator.orchestrator import AIChatOrchestrator
+from ai_chat_orchestrator.slack_chat_client import SlackChatClient
 from ai_client_api.credential import resolve_api_key
 from fastapi import APIRouter, HTTPException
+from gemini_client_impl.client import GeminiClient
 from pydantic import BaseModel, Field
+from tickets_client_impl import TicketsClient
 
+import discord_client_impl  # noqa: F401
 import gemini_client_impl
+from ticket_api import StandardizedTicketAdapter
+from ticket_impl import TicketImpl
+from tickets_api import TicketInterface, TicketStatus
 
 gemini_client_impl.register()
 
@@ -23,17 +28,40 @@ router = APIRouter()
 # Global orchestrator instances for different providers
 _discord_orchestrator: Any = None
 _slack_orchestrator: Any = None
+_jira_ticket_client: TicketInterface | None = None
+_gtasks_ticket_client: TicketInterface | None = None
 
 
 def get_discord_orchestrator() -> Any:
-    """Get or create the Discord orchestrator instance."""
+    """Get or create the Discord orchestrator instance with Jira integration."""
     global _discord_orchestrator
     if _discord_orchestrator is None:
         try:
             gemini_api_key = resolve_api_key(user_id="service", provider="gemini")
-            _discord_orchestrator = create_gemini_discord_orchestrator(
-                gemini_api_key=gemini_api_key,
+            discord_user_id = os.getenv("DISCORD_USER_ID")
+
+            # Create Discord orchestrator with Jira ticket client
+
+            gemini_client_impl.register()
+            discord_client_impl.register()
+
+            ai_client = GeminiClient(api_key=gemini_api_key)
+
+            chat_client = chat_client_api.get_client(user_id=discord_user_id)  # type: ignore[attr-defined]
+
+            # Get Jira ticket client if configured
+            ticket_client = None
+            try:
+                ticket_client = get_jira_ticket_client()
+                logger.info("Jira ticket integration enabled for Discord")
+            except Exception as e:
+                logger.warning(f"Jira ticket integration not available: {e}")
+
+            _discord_orchestrator = AIChatOrchestrator(
+                ai_client=ai_client,
+                chat_client=chat_client,
                 system_prompt="You are a helpful AI assistant in a Discord channel.",
+                ticket_client=ticket_client,
             )
             logger.info("Discord orchestrator initialized successfully")
         except ValueError as e:
@@ -43,7 +71,7 @@ def get_discord_orchestrator() -> Any:
 
 
 def get_slack_orchestrator() -> Any:
-    """Get or create the Slack orchestrator instance."""
+    """Get or create the Slack orchestrator instance with Jira integration."""
     global _slack_orchestrator
     if _slack_orchestrator is None:
         try:
@@ -51,17 +79,65 @@ def get_slack_orchestrator() -> Any:
             slack_token = os.getenv("SLACK_BOT_TOKEN", "")
             slack_base_url = os.getenv("SLACK_BASE_URL", "https://slack.com/api")
 
-            _slack_orchestrator = create_gemini_slack_orchestrator(
-                gemini_api_key=gemini_api_key,
-                slack_token=slack_token,
-                slack_base_url=slack_base_url,
+            # Create Slack orchestrator with Jira ticket client
+
+            gemini_client_impl.register()
+            ai_client = GeminiClient(api_key=gemini_api_key)
+            chat_client = SlackChatClient(base_url=slack_base_url, token=slack_token)
+
+            # Get Jira ticket client if configured
+            ticket_client = None
+            try:
+                ticket_client = get_jira_ticket_client()
+                logger.info("Jira ticket integration enabled for Slack")
+            except Exception as e:
+                logger.warning(f"Jira ticket integration not available: {e}")
+
+            _slack_orchestrator = AIChatOrchestrator(
+                ai_client=ai_client,
+                chat_client=chat_client,
                 system_prompt="You are a helpful AI assistant in a Slack channel.",
+                ticket_client=ticket_client,
             )
             logger.info("Slack orchestrator initialized successfully")
         except ValueError as e:
             logger.error(f"Failed to initialize Slack orchestrator: {e}")
             raise HTTPException(status_code=500, detail=str(e)) from e
     return _slack_orchestrator
+
+
+def get_jira_ticket_client() -> TicketInterface:
+    """Get or create the Jira ticket client instance."""
+    global _jira_ticket_client
+    if _jira_ticket_client is None:
+        try:
+            # Initialize Jira client with default user and project
+            # TODO: Get these from environment variables or configuration
+            user_id = os.getenv("JIRA_USER_ID", "default_user")
+            project_key = os.getenv("JIRA_PROJECT_KEY", "PROJ")
+            jira_impl = TicketImpl(user_id=user_id, project_key=project_key)
+            # Wrap with adapter to expose TicketInterface
+            _jira_ticket_client = StandardizedTicketAdapter(jira_impl)  # type: ignore[assignment]
+            logger.info("Jira ticket client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Jira ticket client: {e}")
+            raise HTTPException(status_code=500, detail=str(e)) from e
+    assert _jira_ticket_client is not None  # Guaranteed by initialization above
+    return _jira_ticket_client
+
+
+def get_gtasks_ticket_client() -> TicketInterface:
+    """Get or create the Google Tasks ticket client instance."""
+    global _gtasks_ticket_client
+    if _gtasks_ticket_client is None:
+        try:
+            # Initialize Google Tasks client
+            _gtasks_ticket_client = TicketsClient()
+            logger.info("Google Tasks ticket client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Google Tasks ticket client: {e}")
+            raise HTTPException(status_code=500, detail=str(e)) from e
+    return _gtasks_ticket_client
 
 
 # Pydantic models
@@ -246,3 +322,235 @@ async def get_slack_metrics() -> MetricsResponse:
     except Exception as e:
         logger.exception("Error retrieving Slack metrics")
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# ==================== Ticketing Endpoints ====================
+
+
+class CreateTicketRequest(BaseModel):
+    """Request model for creating a ticket."""
+
+    title: str = Field(..., description="Ticket title")
+    description: str = Field(..., description="Ticket description")
+    assignee: str | None = Field(None, description="Optional assignee ID")
+
+
+class TicketResponse(BaseModel):
+    """Response model for a ticket."""
+
+    id: str = Field(..., description="Ticket ID")
+    title: str = Field(..., description="Ticket title")
+    description: str = Field(..., description="Ticket description")
+    status: str = Field(..., description="Ticket status")
+    assignee: str | None = Field(None, description="Assignee ID")
+
+
+class TicketListResponse(BaseModel):
+    """Response model for a list of tickets."""
+
+    tickets: list[TicketResponse] = Field(..., description="List of tickets")
+
+
+# Jira Endpoints
+@router.post("/jira/tickets", response_model=TicketResponse)
+async def create_jira_ticket(request: CreateTicketRequest) -> TicketResponse:
+    """Create a new Jira ticket."""
+    try:
+        client = get_jira_ticket_client()
+        ticket = client.create_ticket(
+            title=request.title,
+            description=request.description,
+            assignee=request.assignee,
+        )
+        return TicketResponse(
+            id=ticket.id,
+            title=ticket.title,
+            description=ticket.description,
+            status=ticket.status.value,
+            assignee=ticket.assignee,
+        )
+    except Exception as e:
+        logger.exception("Error creating Jira ticket")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/jira/tickets/{ticket_id}", response_model=TicketResponse)
+async def get_jira_ticket(ticket_id: str) -> TicketResponse:
+    """Get a Jira ticket by ID."""
+    try:
+        client = get_jira_ticket_client()
+        ticket = client.get_ticket(ticket_id)
+        if ticket is None:
+            raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found")
+        return TicketResponse(
+            id=ticket.id,
+            title=ticket.title,
+            description=ticket.description,
+            status=ticket.status.value,
+            assignee=ticket.assignee,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error retrieving Jira ticket {ticket_id}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/jira/tickets", response_model=TicketListResponse)
+async def search_jira_tickets(query: str | None = None, status: str | None = None) -> TicketListResponse:
+    """Search Jira tickets."""
+    try:
+        client = get_jira_ticket_client()
+        ticket_status = TicketStatus(status) if status else None
+        tickets = client.search_tickets(query=query, status=ticket_status)
+        return TicketListResponse(
+            tickets=[
+                TicketResponse(
+                    id=t.id,
+                    title=t.title,
+                    description=t.description,
+                    status=t.status.value,
+                    assignee=t.assignee,
+                )
+                for t in tickets
+            ]
+        )
+    except Exception as e:
+        logger.exception("Error searching Jira tickets")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# Google Tasks Endpoints
+@router.post("/gtasks/tickets", response_model=TicketResponse)
+async def create_gtasks_ticket(request: CreateTicketRequest) -> TicketResponse:
+    """Create a new Google Tasks ticket."""
+    try:
+        client = get_gtasks_ticket_client()
+        ticket = client.create_ticket(
+            title=request.title,
+            description=request.description,
+            assignee=request.assignee,
+        )
+        return TicketResponse(
+            id=ticket.id,
+            title=ticket.title,
+            description=ticket.description,
+            status=ticket.status.value,
+            assignee=ticket.assignee,
+        )
+    except Exception as e:
+        logger.exception("Error creating Google Tasks ticket")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/gtasks/tickets/{ticket_id}", response_model=TicketResponse)
+async def get_gtasks_ticket(ticket_id: str) -> TicketResponse:
+    """Get a Google Tasks ticket by ID."""
+    try:
+        client = get_gtasks_ticket_client()
+        ticket = client.get_ticket(ticket_id)
+        if ticket is None:
+            raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found")
+        return TicketResponse(
+            id=ticket.id,
+            title=ticket.title,
+            description=ticket.description,
+            status=ticket.status.value,
+            assignee=ticket.assignee,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error retrieving Google Tasks ticket {ticket_id}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/gtasks/tickets", response_model=TicketListResponse)
+async def search_gtasks_tickets(query: str | None = None, status: str | None = None) -> TicketListResponse:
+    """Search Google Tasks tickets."""
+    try:
+        client = get_gtasks_ticket_client()
+        ticket_status = TicketStatus(status) if status else None
+        tickets = client.search_tickets(query=query, status=ticket_status)
+        return TicketListResponse(
+            tickets=[
+                TicketResponse(
+                    id=t.id,
+                    title=t.title,
+                    description=t.description,
+                    status=t.status.value,
+                    assignee=t.assignee,
+                )
+                for t in tickets
+            ]
+        )
+    except Exception as e:
+        logger.exception("Error searching Google Tasks tickets")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# ==================== Slack Webhook Endpoint ====================
+
+
+class SlackEventRequest(BaseModel):
+    """Slack Event API request model."""
+
+    type: str = Field(..., description="Event type")
+    challenge: str | None = Field(None, description="Challenge for URL verification")
+    event: dict[str, Any] | None = Field(None, description="Event data")
+
+
+@router.post("/webhook/slack")
+async def slack_webhook(request: SlackEventRequest) -> dict[str, Any]:
+    """Handle incoming Slack events.
+
+    This endpoint handles:
+    1. URL verification challenge from Slack
+    2. Message events from channels where the bot is present
+    """
+    try:
+        # Handle URL verification challenge
+        if request.type == "url_verification":
+            logger.info("Received Slack URL verification challenge")
+            if request.challenge:
+                return {"challenge": request.challenge}
+            raise HTTPException(status_code=400, detail="Challenge missing from verification request")
+
+        # Handle message events
+        if request.type == "event_callback" and request.event:
+            event = request.event
+            event_type = event.get("type")
+
+            # Only process message events in channels (not DMs, not bot messages)
+            if event_type == "message" and event.get("channel_type") == "channel":
+                # Ignore bot messages to prevent loops
+                if event.get("bot_id") or event.get("subtype") == "bot_message":
+                    logger.debug("Ignoring bot message to prevent loop")
+                    return {"ok": True}
+
+                channel_id = event.get("channel")
+                user_input = event.get("text", "")
+
+                if channel_id and user_input:
+                    logger.info(f"Processing Slack message from channel {channel_id}: {user_input[:50]}...")
+
+                    # Process the message through orchestrator
+                    orchestrator = get_slack_orchestrator()
+                    response = orchestrator.process_direct(
+                        channel_id=channel_id,
+                        user_input=user_input,
+                    )
+
+                    if response:
+                        logger.info(f"AI response sent to Slack channel {channel_id}")
+                    else:
+                        logger.error("Failed to get AI response")
+
+        return {"ok": True}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error processing Slack webhook")
+        # Return 200 to acknowledge receipt even on error (Slack retries otherwise)
+        return {"ok": False, "error": str(e)}

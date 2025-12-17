@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from chat_client_api import Channel, Message
+from chat_client_api import Message
 
 from .adapter import (
     ServiceAdapter,
     ServiceBackedClient,
+    SlackChannel,
     SlackMessage,
     SlackServiceBackedClient,
     _get_id,
@@ -14,10 +15,10 @@ from .adapter import (
 
 # Explicit public API (sorted for Ruff RUF022)
 __all__ = [
-    "Channel",
     "Message",
     "ServiceAdapter",
     "ServiceBackedClient",
+    "SlackChannel",
     "SlackMessage",
     "SlackServiceBackedClient",
     "_get_id",

@@ -92,7 +92,8 @@ ai-chat-orchestrator/
 │   └── e2e/                        # End-to-end tests
 ├── docs/                           # MkDocs documentation
 ├── .circleci/                      # CI/CD configuration
-└── Dockerfile.orchestrator         # Multi-stage Docker build
+├── Dockerfile                      # Production Docker build with health checks
+└── DEPLOYMENT.md                   # GCP deployment guide
 ```
 
 ## Quick Start
@@ -147,32 +148,19 @@ uv run mkdocs serve
 
 ```bash
 # Build the orchestrator service
-docker build --platform linux/amd64 -f Dockerfile.orchestrator -t orchestrator-service .
+docker build --platform linux/amd64 -t orchestrator-service .
 
 # Run locally
 docker run -p 8000:8000 \
   -e GEMINI_API_KEY="your_api_key" \
+  -e DISCORD_BOT_TOKEN="your_discord_token" \
+  -e SLACK_BOT_TOKEN="your_slack_token" \
   orchestrator-service
 ```
 
 ### Deploy to GCP Cloud Run
 
-```bash
-# 1. Authenticate with GCP
-gcloud auth login
-gcloud config set project your-project-id
-
-# 2. Build and push Docker image
-docker build --platform linux/amd64 -f Dockerfile.orchestrator \
-  -t us-central1-docker.pkg.dev/your-project/ai-chat-orchestrator/orchestrator-service:latest .
-
-docker push us-central1-docker.pkg.dev/your-project/ai-chat-orchestrator/orchestrator-service:latest
-
-# 3. Deploy with Terraform
-cd terraform
-terraform init
-terraform apply -var="access_token=$(gcloud auth print-access-token)"
-```
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
 
 ## Monitoring & Observability
 

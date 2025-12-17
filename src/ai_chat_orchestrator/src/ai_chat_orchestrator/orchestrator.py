@@ -4,6 +4,8 @@ import logging
 import time
 from typing import Any
 
+from tickets_api import TicketStatus
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,6 +17,7 @@ class AIChatOrchestrator:
         ai_client: Any,
         chat_client: Any,
         system_prompt: str = "You are a helpful AI assistant in a chat channel.",
+        ticket_client: Any | None = None,
     ) -> None:
         """Initialize orchestrator with AI and chat clients.
 
@@ -22,10 +25,29 @@ class AIChatOrchestrator:
             ai_client: Instance of AIInterface
             chat_client: Instance of ChatInterface
             system_prompt: System instruction for the AI model
+            ticket_client: Optional ticketing client (Jira/Google Tasks) for AI function calling
         """
         self.ai_client = ai_client
         self.chat_client = chat_client
-        self.system_prompt = system_prompt
+        self.ticket_client = ticket_client
+
+        # Enhance system prompt with ticket capabilities if ticket_client is available
+        if ticket_client:
+            self.system_prompt = f"""{system_prompt}
+
+You have access to a ticketing/task management system (which could be Jira, Google Tasks, or similar).
+When users ask about tickets, tasks, or to-dos, you can:
+- List recent tickets/tasks: Respond with EXACTLY: GET_TICKETS:limit=<number>
+- Search tickets/tasks by status: Respond with EXACTLY: SEARCH_TICKETS:status=<status>
+- Get specific ticket/task: Respond with EXACTLY: GET_TICKET:id=<ticket_id>
+
+After receiving ticket/task data, provide a natural language summary or answer based on what the user asked.
+Valid statuses: open, in_progress, closed
+
+IMPORTANT: When users ask about "tasks" or "to-dos" or "Google Tasks", they are referring to tickets in the system. Use the same commands above.
+"""
+        else:
+            self.system_prompt = system_prompt
 
         # Telemetry metrics
         self.metrics = {
@@ -70,8 +92,14 @@ class AIChatOrchestrator:
         self.metrics["total_requests"] += 1
 
         try:
-            # Fetch message from chat
-            message = self.chat_client.get_message(channel_id, message_id)
+            messages = self.chat_client.get_messages(channel_id, limit=100)
+            message = next((m for m in messages if m.id == message_id), None)
+
+            if not message:
+                logger.warning(f"Message {message_id} not found in channel {channel_id}")
+                self.metrics["failed_requests"] += 1
+                return False
+
             user_input = message.content
 
             if not user_input or not user_input.strip():
@@ -90,6 +118,23 @@ class AIChatOrchestrator:
             self.metrics["ai_generation_time"] += ai_duration
 
             response_text = str(ai_response) if isinstance(ai_response, dict) else str(ai_response)
+
+            # Check if AI response is a ticket request
+            if self.ticket_client and self._is_ticket_request(response_text):
+                ticket_data = self._handle_ticket_request(response_text)
+                if ticket_data:
+                    # Ask AI to summarize the ticket data
+                    ai_summary_start = time.time()
+                    summary_response = self.ai_client.generate_response(
+                        user_input=f"Original request: {user_input}\n\nTicket data:\n{ticket_data}\n\nPlease provide a natural language summary based on what the user asked.",
+                        system_prompt=self.system_prompt,
+                        response_schema=None,
+                    )
+                    ai_summary_duration = time.time() - ai_summary_start
+                    self.metrics["ai_generation_time"] += ai_summary_duration
+                    response_text = (
+                        str(summary_response) if isinstance(summary_response, dict) else str(summary_response)
+                    )
 
             # Send message with timing
             chat_start = time.time()
@@ -153,6 +198,23 @@ class AIChatOrchestrator:
 
             response_text = str(ai_response) if isinstance(ai_response, dict) else str(ai_response)
 
+            # Check if AI response is a ticket request
+            if self.ticket_client and self._is_ticket_request(response_text):
+                ticket_data = self._handle_ticket_request(response_text)
+                if ticket_data:
+                    # Ask AI to summarize the ticket data
+                    ai_summary_start = time.time()
+                    summary_response = self.ai_client.generate_response(
+                        user_input=f"Original request: {user_input}\n\nTicket data:\n{ticket_data}\n\nPlease provide a natural language summary based on what the user asked.",
+                        system_prompt=self.system_prompt,
+                        response_schema=None,
+                    )
+                    ai_summary_duration = time.time() - ai_summary_start
+                    self.metrics["ai_generation_time"] += ai_summary_duration
+                    response_text = (
+                        str(summary_response) if isinstance(summary_response, dict) else str(summary_response)
+                    )
+
             # Send message with timing
             chat_start = time.time()
             success = bool(self.chat_client.send_message(channel_id, response_text))
@@ -182,3 +244,66 @@ class AIChatOrchestrator:
                 chat_duration if "chat_duration" in locals() else 0.0,
                 self.metrics["successful_requests"] > self.metrics["failed_requests"],
             )
+
+    def _is_ticket_request(self, response: str) -> bool:
+        """Check if AI response contains a ticket function call."""
+        commands = ["GET_TICKETS:", "SEARCH_TICKETS:", "GET_TICKET:"]
+        return any(cmd in response for cmd in commands)
+
+    def _handle_ticket_request(self, response: str) -> str | None:
+        """Parse and execute ticket function calls from AI response."""
+        if not self.ticket_client:
+            return None
+
+        try:
+            # Parse GET_TICKETS:limit=N
+            if "GET_TICKETS:" in response:
+                limit_str = response.split("GET_TICKETS:limit=")[1].split()[0].strip()
+                limit = int(limit_str)
+                tickets = self.ticket_client.search_tickets(query=None, status=None)
+                tickets_list = list(tickets)[:limit] if hasattr(tickets, "__iter__") else tickets[:limit]
+                return self._format_tickets(tickets_list)
+
+            # Parse SEARCH_TICKETS:status=<status>
+            elif "SEARCH_TICKETS:status=" in response:
+                status = response.split("SEARCH_TICKETS:status=")[1].split()[0].strip()
+                # Map status string to enum if needed
+
+                status_map = {
+                    "open": TicketStatus.OPEN,
+                    "in_progress": TicketStatus.IN_PROGRESS,
+                    "closed": TicketStatus.CLOSED,
+                }
+                ticket_status = status_map.get(status.lower())
+                if ticket_status:
+                    tickets = self.ticket_client.search_tickets(query=None, status=ticket_status)
+                    return self._format_tickets(tickets)
+
+            # Parse GET_TICKET:id=<id>
+            elif "GET_TICKET:id=" in response:
+                ticket_id = response.split("GET_TICKET:id=")[1].split()[0].strip()
+                ticket = self.ticket_client.get_ticket(ticket_id)
+                if ticket:
+                    return self._format_tickets([ticket])
+
+        except Exception as e:
+            logger.error(f"Error handling ticket request: {e}")
+            return f"Error fetching tickets: {e}"
+
+        return None
+
+    def _format_tickets(self, tickets: list[Any]) -> str:
+        """Format ticket list as a readable string."""
+        if not tickets:
+            return "No tickets found."
+
+        result = []
+        for ticket in tickets:
+            result.append(
+                f"ID: {ticket.id}\n"
+                f"Title: {ticket.title}\n"
+                f"Status: {ticket.status.value if hasattr(ticket.status, 'value') else ticket.status}\n"
+                f"Description: {ticket.description}\n"
+                f"---"
+            )
+        return "\n".join(result)

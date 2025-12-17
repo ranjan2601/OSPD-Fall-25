@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import chat_client_api
-from chat_client_api.message import Channel, Message
+from chat_client_api import Message
 from discord_client_service_client import Client as GeneratedClient
 from discord_client_service_client.api.default import (
     delete_message_guild_id_channels_channel_id_messages_message_id_delete,
@@ -85,8 +85,12 @@ class ServiceMessage(Message):
 
 
 @dataclass
-class ServiceChannel(Channel):
-    """Simple Channel implementation for service adapter responses."""
+class ServiceChannel:
+    """Simple Channel implementation for service adapter responses.
+
+    Note: Channel is not part of the standardized ChatInterface.
+    This class is kept for internal use only.
+    """
 
     _id: str
     _name: str
@@ -276,7 +280,7 @@ class ServiceAdapterClient(chat_client_api.ChatInterface):
             logger.exception("Failed to delete message %s from channel %s", message_id, channel_id)
             return False
 
-    def get_channel(self, channel_id: str) -> Channel:
+    def get_channel(self, channel_id: str) -> ServiceChannel:
         """Get information about a specific Discord channel.
 
         Args:
@@ -314,7 +318,7 @@ class ServiceAdapterClient(chat_client_api.ChatInterface):
             error_msg = f"Failed to get channel: {e}"
             raise ValueError(error_msg) from e
 
-    def get_channels(self) -> Iterator[Channel]:
+    def get_channels(self) -> Iterator[ServiceChannel]:
         """Get all accessible Discord channels for the user.
 
         Yields:

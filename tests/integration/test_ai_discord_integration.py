@@ -41,10 +41,11 @@ def test_gemini_discord_message_flow() -> None:
 
     orchestrator = create_gemini_discord_orchestrator(gemini_api_key="test_key")
 
-    with patch.object(orchestrator.chat_client, "get_message") as mock_get:
+    with patch.object(orchestrator.chat_client, "get_messages") as mock_get:
         mock_message = Mock()
+        mock_message.id = "msg_123"
         mock_message.content = "What is the capital of France?"
-        mock_get.return_value = mock_message
+        mock_get.return_value = [mock_message]
 
         with patch.object(orchestrator.ai_client, "generate_response") as mock_ai:
             mock_ai.return_value = "The capital of France is Paris."
@@ -55,7 +56,7 @@ def test_gemini_discord_message_flow() -> None:
                 result = orchestrator.handle_message("channel_456", "msg_123")
 
                 assert result is True
-                mock_get.assert_called_once_with("channel_456", "msg_123")
+                mock_get.assert_called_once_with("channel_456", limit=100)
                 mock_ai.assert_called_once()
                 assert mock_ai.call_args[1]["user_input"] == "What is the capital of France?"
                 mock_send.assert_called_once()
@@ -69,10 +70,11 @@ def test_gemini_discord_ai_error_handling() -> None:
 
     orchestrator = create_gemini_discord_orchestrator(gemini_api_key="test_key")
 
-    with patch.object(orchestrator.chat_client, "get_message") as mock_get:
+    with patch.object(orchestrator.chat_client, "get_messages") as mock_get:
         mock_message = Mock()
+        mock_message.id = "msg_1"
         mock_message.content = "Test message"
-        mock_get.return_value = mock_message
+        mock_get.return_value = [mock_message]
 
         with patch.object(orchestrator.ai_client, "generate_response") as mock_ai:
             mock_ai.side_effect = RuntimeError("Gemini API error")
@@ -89,10 +91,11 @@ def test_gemini_discord_chat_error_handling() -> None:
 
     orchestrator = create_gemini_discord_orchestrator(gemini_api_key="test_key")
 
-    with patch.object(orchestrator.chat_client, "get_message") as mock_get:
+    with patch.object(orchestrator.chat_client, "get_messages") as mock_get:
         mock_message = Mock()
+        mock_message.id = "msg_1"
         mock_message.content = "Test message"
-        mock_get.return_value = mock_message
+        mock_get.return_value = [mock_message]
 
         with patch.object(orchestrator.ai_client, "generate_response") as mock_ai:
             mock_ai.return_value = "AI response"

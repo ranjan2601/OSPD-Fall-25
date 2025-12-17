@@ -3,10 +3,11 @@
 from typing import Any
 from unittest.mock import Mock
 
+from ai_chat_orchestrator import AIChatOrchestrator
+
 
 def test_orchestrator_initialization(mock_ai_client: Any, mock_chat_client: Any) -> None:
     """Test orchestrator initialization."""
-    from ai_chat_orchestrator import AIChatOrchestrator
 
     orch = AIChatOrchestrator(
         ai_client=mock_ai_client,
@@ -23,7 +24,7 @@ def test_handle_message_success(orchestrator: Any, mock_ai_client: Any, mock_cha
     result = orchestrator.handle_message("channel_789", "msg_123")
 
     assert result is True
-    mock_chat_client.get_message.assert_called_once_with("channel_789", "msg_123")
+    mock_chat_client.get_messages.assert_called_once_with("channel_789", limit=100)
     mock_ai_client.generate_response.assert_called_once()
     call_args = mock_ai_client.generate_response.call_args
     assert call_args[1]["user_input"] == "Hello AI"
@@ -34,8 +35,9 @@ def test_handle_message_success(orchestrator: Any, mock_ai_client: Any, mock_cha
 def test_handle_message_empty_content(orchestrator: Any, mock_chat_client: Any) -> None:
     """Test handling empty message content."""
     empty_message = Mock()
+    empty_message.id = "msg_123"
     empty_message.content = ""
-    mock_chat_client.get_message.return_value = empty_message
+    mock_chat_client.get_messages.return_value = [empty_message]
 
     result = orchestrator.handle_message("channel_789", "msg_123")
 
@@ -78,7 +80,7 @@ def test_process_direct(orchestrator: Any, mock_ai_client: Any, mock_chat_client
     result = orchestrator.process_direct("channel_789", "What is 2+2?")
 
     assert result == "Mock AI response"
-    mock_chat_client.get_message.assert_not_called()
+    mock_chat_client.get_messages.assert_not_called()
     mock_ai_client.generate_response.assert_called_once()
     mock_chat_client.send_message.assert_called_once()
 

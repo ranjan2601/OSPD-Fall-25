@@ -15,6 +15,11 @@ dependencies = [
     "ai-chat-orchestrator",
     "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",
+    "ticket-api",
+    "ticket-impl",
+    "tickets-api",
+    "tickets-client-impl",
+    "discord-py>=2.6.4",
 ]
 
 [build-system]

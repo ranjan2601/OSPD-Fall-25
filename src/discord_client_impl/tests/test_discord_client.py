@@ -169,7 +169,7 @@ class TestMessageOperations:
         assert len(messages) == EXPECTED_MESSAGE_COUNT
         assert messages[0].id == "123456"
         assert messages[0].content == "Test message 1"
-        assert messages[0].sender_name == "TestUser"
+        assert messages[0].sender_name == "TestUser"  # type: ignore[attr-defined]
 
     @respx.mock
     def test_get_messages_empty_channel(self, discord_client: DiscordClient) -> None:

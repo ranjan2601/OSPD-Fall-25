@@ -9,7 +9,9 @@ import pytest
 from slack_adapter import SlackServiceBackedClient
 
 if TYPE_CHECKING:  # satisfy TC001: keep app imports type-only
-    from chat_client_api import Channel, Message
+    from chat_client_api import Message
+
+    from slack_adapter import SlackChannel as Channel  # For backward compatibility in tests
 
 
 def test_adapter_exports() -> None:

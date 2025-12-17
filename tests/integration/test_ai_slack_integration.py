@@ -35,10 +35,11 @@ def test_gemini_slack_message_flow() -> None:
         slack_token="xoxb-test-token",
     )
 
-    with patch.object(orchestrator.chat_client, "get_message") as mock_get:
+    with patch.object(orchestrator.chat_client, "get_messages") as mock_get:
         mock_message = Mock()
+        mock_message.id = "1234567890.123456"
         mock_message.content = "Tell me a joke"
-        mock_get.return_value = mock_message
+        mock_get.return_value = [mock_message]
 
         with patch.object(orchestrator.ai_client, "generate_response") as mock_ai:
             mock_ai.return_value = "Why did the chicken cross the road?"
@@ -64,7 +65,7 @@ def test_gemini_slack_error_handling() -> None:
         slack_token="xoxb-test",
     )
 
-    with patch.object(orchestrator.chat_client, "get_message") as mock_get:
+    with patch.object(orchestrator.chat_client, "get_messages") as mock_get:
         mock_get.side_effect = Exception("Slack API error")
 
         result = orchestrator.handle_message("C123456", "1234567890.123456")

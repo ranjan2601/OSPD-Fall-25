@@ -9,6 +9,9 @@ import ai_client_api
 import gemini_client_impl
 from gemini_client_impl.client import GeminiClient, get_client_impl, register
 
+import importlib
+from ai_client_api import client as client_module
+
 
 class TestGeminiClientInit:
     """Test GeminiClient initialization."""
@@ -103,8 +106,6 @@ class TestDependencyInjection:
     @pytest.fixture(autouse=True)
     def save_original_factory(self) -> Generator[None, None, None]:
         """Save and restore original factory."""
-        import importlib
-        from ai_client_api import client as client_module
 
         importlib.reload(client_module)
         original = client_module.get_client

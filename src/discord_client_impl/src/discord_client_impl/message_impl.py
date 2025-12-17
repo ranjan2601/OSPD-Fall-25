@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from chat_client_api.message import Channel, Message
+from chat_client_api import Message
 
 
 class DiscordMessage(Message):
@@ -59,7 +59,7 @@ class DiscordMessage(Message):
         return str(edited) if edited else None
 
 
-class DiscordChannel(Channel):
+class DiscordChannel:
     """Discord implementation of Channel."""
 
     def __init__(self, raw_data: dict[str, Any]) -> None:
