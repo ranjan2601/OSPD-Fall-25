@@ -1,4 +1,5 @@
 """Tests for orchestrator service factory functions."""
+# mypy: disable-error-code="no-untyped-def"
 
 import os
 from unittest.mock import MagicMock, patch
