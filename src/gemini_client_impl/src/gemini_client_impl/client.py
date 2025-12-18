@@ -22,7 +22,7 @@ class GeminiClient(AIInterface):
 
         # Initialize Gemini API
         genai.configure(api_key=api_key)  # type: ignore[attr-defined]
-        self.model: Any = genai.GenerativeModel("gemini-2.0-flash")  # type: ignore[attr-defined]
+        self.model: Any = genai.GenerativeModel("gemini-3-flash-preview")  # type: ignore[attr-defined]
 
     def generate_response(
         self,

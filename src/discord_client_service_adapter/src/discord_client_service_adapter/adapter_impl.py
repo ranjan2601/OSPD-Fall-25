@@ -30,7 +30,6 @@ from discord_client_service_client.models.send_message_request import (
 from discord_client_service_client.types import Unset
 
 if TYPE_CHECKING:
-    # Standard library
     from collections.abc import Iterator
 
 logger = logging.getLogger(__name__)
@@ -300,7 +299,6 @@ class ServiceAdapterClient(chat_client_api.ChatInterface):
                 channel_id=channel_id,
             )
             if isinstance(response, ChannelInfo):
-                # Use 'type_' attribute if 'type' doesn't exist
                 channel_type = getattr(response, "type", None) or getattr(
                     response, "type_", "unknown"
                 )
@@ -332,7 +330,6 @@ class ServiceAdapterClient(chat_client_api.ChatInterface):
             )
             if response and hasattr(response, "channels") and response.channels:
                 for ch in response.channels:
-                    # Use 'type_' attribute if 'type' doesn't exist
                     channel_type = getattr(ch, "type", None) or getattr(ch, "type_", "unknown")
                     yield ServiceChannel(
                         _id=ch.id,

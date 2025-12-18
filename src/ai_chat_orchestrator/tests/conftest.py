@@ -25,8 +25,9 @@ def mock_chat_client() -> Any:
     mock_message.id = "msg_123"
     mock_message.content = "Hello AI"
     mock_message.sender_id = "user_456"
+    mock_message.channel_id = "channel_789"
 
-    # get_messages() returns a list (standardized interface)
+    client.get_message.return_value = mock_message
     client.get_messages.return_value = [mock_message]
     client.send_message.return_value = True
 

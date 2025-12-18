@@ -6,7 +6,7 @@ import os
 from contextvars import ContextVar
 from typing import Annotated
 
-import gtask_client_impl  # Ensure registration happens
+import gtask_client_impl
 from fastapi import Depends, HTTPException, Request
 from task_client_api import Client, get_client
 
@@ -14,8 +14,6 @@ gtask_client_impl.register()
 
 logger = logging.getLogger(__name__)
 
-# Store current request in a context variable (thread-safe alternative to global)
-# This allows gtask_impl.py to access the request object to get app.state
 current_request: ContextVar[Request | None] = ContextVar("current_request", default=None)
 
 
@@ -29,7 +27,6 @@ def get_task_client(request: Request) -> Client:
     current_request.set(request)
 
     session_creds = None
-    # Log session info for debugging
     logger.info(
         "get_task_client: Session keys: %s",
         list(request.session.keys()) if hasattr(request.session, "keys") else "N/A",
@@ -57,11 +54,9 @@ def get_task_client(request: Request) -> Client:
     base_url = f"{request.url.scheme}://{request.url.netloc}"
     os.environ["TASK_SERVICE_BASE_URL"] = base_url
 
-    # First, try to get client with interactive=False (normal flow)
     try:
         client = get_client(interactive=False)
     except RuntimeError as e:
-        # If credentials aren't available, try interactive=True to trigger auth flow
         error_msg = str(e)
         if "Failed to obtain credentials" in error_msg or "credentials" in error_msg.lower():
             logger.info(
@@ -69,7 +64,6 @@ def get_task_client(request: Request) -> Client:
                 "to trigger authentication flow."
             )
             try:
-                # This will trigger the OAuth flow automatically
                 client = get_client(interactive=True)
             except RuntimeError as interactive_error:
                 logger.warning(
@@ -98,7 +92,6 @@ def get_task_client(request: Request) -> Client:
                 logger.info("Task client created successfully after interactive authentication")
                 return client
         else:
-            # Some other RuntimeError, re-raise it
             logger.warning("Task client initialization failed: %s", e)
             raise HTTPException(
                 status_code=401,

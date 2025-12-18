@@ -38,7 +38,6 @@ class DiscordMessage(Message):
         """Return the display name of the message author."""
         author = self._raw_data.get("author", {})
         if isinstance(author, dict):
-            # Prefer global_name, fallback to username
             return str(author.get("global_name") or author.get("username", "Unknown"))
         return "Unknown"
 
@@ -79,19 +78,16 @@ class DiscordChannel:
     @property
     def name(self) -> str:
         """Return the name of the channel."""
-        # DM channels may not have a name
         name = self._raw_data.get("name")
         if name:
             return str(name)
-        # For DM channels, construct a name from recipients
         recipients = self._raw_data.get("recipients")
         if isinstance(recipients, list):
-            if recipients:  # Non-empty recipient list
+            if recipients:
                 usernames = [
                     r.get("username", "Unknown") for r in recipients if isinstance(r, dict)
                 ]
                 return f"DM: {', '.join(usernames)}" if usernames else "Direct Message"
-            # Empty recipient list for DM
             return "Direct Message"
         return "Unknown Channel"
 

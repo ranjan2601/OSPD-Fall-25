@@ -12,15 +12,12 @@ from typing import Any
 
 from fastapi import Cookie, HTTPException
 
-# In-memory stores. Keys are hex strings.
 _STATE_STORE: dict[str, dict[str, Any]] = {}
 _SESSION_STORE: dict[str, dict[str, Any]] = {}
-# Credentials store (in-memory): maps guild_id -> credential dict
 _CREDENTIAL_STORE: dict[str, dict[str, Any]] = {}
 
-# TTLs in seconds
-STATE_TTL = 300  # 5 minutes for OAuth state
-SESSION_TTL = 3600  # 1 hour for session
+STATE_TTL = 300
+SESSION_TTL = 3600
 
 
 def _now() -> float:
@@ -77,7 +74,6 @@ def check_session(session_id: str | None, guild_id: str) -> bool:
     if not s:
         return False
     if _now() - s.get("created", 0) > SESSION_TTL:
-        # expired
         _SESSION_STORE.pop(session_id, None)
         return False
     return guild_id in s.get("guilds", [])

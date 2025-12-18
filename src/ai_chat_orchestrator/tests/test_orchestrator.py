@@ -3,11 +3,10 @@
 from typing import Any
 from unittest.mock import Mock
 
-from ai_chat_orchestrator import AIChatOrchestrator
-
 
 def test_orchestrator_initialization(mock_ai_client: Any, mock_chat_client: Any) -> None:
     """Test orchestrator initialization."""
+    from ai_chat_orchestrator import AIChatOrchestrator
 
     orch = AIChatOrchestrator(
         ai_client=mock_ai_client,
@@ -80,7 +79,7 @@ def test_process_direct(orchestrator: Any, mock_ai_client: Any, mock_chat_client
     result = orchestrator.process_direct("channel_789", "What is 2+2?")
 
     assert result == "Mock AI response"
-    mock_chat_client.get_messages.assert_not_called()
+    mock_chat_client.get_message.assert_not_called()
     mock_ai_client.generate_response.assert_called_once()
     mock_chat_client.send_message.assert_called_once()
 

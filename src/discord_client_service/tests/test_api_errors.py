@@ -8,7 +8,6 @@ from chat_client_api.exceptions import MessageDeleteError
 from fastapi.testclient import TestClient
 
 from discord_client_service import api, service
-from discord_client_service.auth_session import require_guild_access as _require_guild_access
 
 # short alias for pytest.MonkeyPatch to keep function signatures under 100 chars
 MP = pytest.MonkeyPatch
@@ -25,6 +24,9 @@ HTTP_INTERNAL_SERVER_ERROR = 500
 # Optional so mypy accepts the `None` fallback below.
 require_guild_access: Callable[..., Any] | None
 try:
+    # import under a temporary name to preserve the annotated name
+    from discord_client_service.auth_session import require_guild_access as _require_guild_access
+
     require_guild_access = _require_guild_access
 except (ImportError, ModuleNotFoundError):
     require_guild_access = None

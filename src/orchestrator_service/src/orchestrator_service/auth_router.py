@@ -1,16 +1,9 @@
 """OAuth authentication routes for Jira integration."""
 
 import logging
-import sys
-from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
-
-# Add ticket_impl to path for OAuth functions
-ticket_impl_path = Path(__file__).parent.parent.parent.parent.parent / "ticket_impl/src"
-sys.path.insert(0, str(ticket_impl_path))
-
 from ticket_impl.config import settings
 from ticket_impl.oauth import (
     build_authorize_url,
@@ -18,6 +11,7 @@ from ticket_impl.oauth import (
     extract_cloud_id_from_token,
     fetch_cloud_id_from_api,
 )
+from ticket_impl.storage import get_tokens, is_expired
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +22,6 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 async def oauth_login(user_id: str = Query(..., description="User identifier (e.g., email)")) -> RedirectResponse:
     """Initiate OAuth flow for Jira."""
     try:
-        # Use user_id as state to track who's authenticating
         auth_url = build_authorize_url(state=user_id)
         logger.info(f"Redirecting user {user_id} to Jira OAuth")
         return RedirectResponse(url=auth_url)
@@ -47,26 +40,21 @@ async def oauth_callback(
         user_id = state
         logger.info(f"Processing OAuth callback for user {user_id}")
 
-        # Exchange code for tokens
         access_token, refresh_token, expires_in = await exchange_code_for_tokens(user_id, code)
 
-        # Try to extract cloud ID from token
         cloud_id = extract_cloud_id_from_token(access_token)
 
         if not cloud_id:
-            # If not in token, fetch from API
             cloud_id = await fetch_cloud_id_from_api(access_token)
 
         if cloud_id:
             logger.info(f"Successfully authenticated user {user_id}, cloud_id: {cloud_id}")
-            # Update settings with cloud ID if it was a placeholder
             if settings.jira_cloud_id == "placeholder-will-get-from-oauth":
                 settings.jira_cloud_id = cloud_id
                 logger.info(f"Updated JIRA_CLOUD_ID to {cloud_id}")
         else:
             logger.warning("Could not extract cloud_id from token or API")
 
-        # Return success page
         return HTMLResponse(
             content=f"""
             <html>
@@ -108,8 +96,6 @@ async def oauth_callback(
 async def auth_status(user_id: str = Query(..., description="User identifier")) -> dict[str, str | bool | None]:
     """Check if user has valid OAuth tokens."""
     try:
-        from ticket_impl.storage import get_tokens, is_expired
-
         tokens = get_tokens(user_id)
 
         if not tokens:

@@ -62,9 +62,6 @@ class DiscordClient(ChatInterface):
             "DISCORD_REDIRECT_URI", "http://localhost:8001/auth/callback"
         )
         self.access_token = access_token
-        # Create HTTP client
-        # Token type controls the Authorization header verb (Bearer vs Bot)
-        # If not provided, default to Bot for backwards compatibility with previous changes.
         self.token_type = token_type or os.environ.get("DISCORD_DEFAULT_TOKEN_TYPE", "Bot")
 
         # Create HTTP client
@@ -103,21 +100,14 @@ class DiscordClient(ChatInterface):
             redirect_uri=self.redirect_uri,
         )
 
-        # Discord requires specific scopes for reading/sending messages.
-        # Requested scopes: identity, guilds, messages.read and bot.
         scopes = ["identify", "guilds", "messages.read", "bot"]
 
-        # For bot installs, request the specific permission bits the bot needs.
-        # Use named constants for clarity (lowercase to satisfy local variable naming):
-        # view_channel, send_messages, read_message_history.
         view_channel = 0x00000400  # 1024
         send_messages = 0x00000800  # 2048
         read_message_history = 0x00010000  # 65536
 
         permissions = view_channel | send_messages | read_message_history  # = 68608
 
-        # Integration type: Guild Install (this authorizes the bot for a guild).
-        # Build authorization URL. Include explicit response_type to make intent clear.
         authorization_url, state_value = oauth_client.create_authorization_url(
             self.OAUTH2_AUTHORIZE_URL,
             scope=" ".join(scopes),
@@ -265,7 +255,6 @@ class DiscordClient(ChatInterface):
         """
         self._ensure_authenticated()
 
-        # Discord API limits to 100 messages per request
         limit = min(limit, 100)
 
         try:
@@ -361,7 +350,6 @@ class DiscordClient(ChatInterface):
         self._ensure_authenticated()
 
         try:
-            # Get user's DM channels
             response = self._http_client.get("/users/@me/channels")
             response.raise_for_status()
             channels = response.json()
@@ -443,8 +431,6 @@ class DiscordClient(ChatInterface):
 
         Returns True on success, raises an exception on failure.
         """
-        # For bot token clients, DELETE /users/@me/guilds/{guild_id} removes the
-        # current user (bot) from the guild.
         self._ensure_authenticated()
 
         try:

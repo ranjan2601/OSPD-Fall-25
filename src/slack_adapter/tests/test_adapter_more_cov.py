@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from chat_client_api import Message
+from chat_client_api import Message  # runtime construction only
 
 from slack_adapter import ServiceAdapter, SlackChannel, _get_id  # type: ignore[import]
 

@@ -19,7 +19,11 @@ dependencies = [
     "ticket-impl",
     "tickets-api",
     "tickets-client-impl",
+    "task-client-service",
+    "gtask-client-impl",
     "discord-py>=2.6.4",
+    "slack-impl",
+    "google-cloud-monitoring>=2.22.0",
 ]
 
 [build-system]

@@ -13,7 +13,6 @@ from typing import Any, cast
 # Module-level constants and imports.
 import pytest
 from fastapi.testclient import TestClient
-from discord_client_service.auth_session import require_guild_access as _require_guild_access
 
 from discord_client_service import api, service
 
@@ -23,6 +22,10 @@ from discord_client_service import api, service
 # optional type so mypy understands the variable may be None.
 require_guild_access: Callable[..., Any] | None = None
 try:
+    # import under a temporary name then assign to the annotated name so
+    # mypy keeps the declared Optional type on `require_guild_access`.
+    from discord_client_service.auth_session import require_guild_access as _require_guild_access
+
     require_guild_access = _require_guild_access
 except ImportError:
     require_guild_access = None

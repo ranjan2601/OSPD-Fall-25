@@ -1,124 +1,308 @@
-# gemini-ai-service-client
-A client library for accessing Gemini AI Service
+# Source Packages
 
-## Usage
-First, create a client:
+This directory contains all the microservice packages that comprise the AI-Chat Orchestrator platform. Each package is independently tested, documented, and follows the component-based architecture pattern.
 
+## Package Overview
+
+### AI Client Layer
+
+**[ai_client_api](ai_client_api/)** - Abstract base class defining the contract for AI service integrations.
+- Provides `AIClient` ABC for standardized AI operations
+- Supports both conversational and structured output modes
+- Enables dependency injection and provider-agnostic design
+
+**[gemini_client_impl](gemini_client_impl/)** - Google Gemini API implementation of the AIClient interface.
+- Concrete implementation using Google's Gemini API
+- Supports JSON schema-based structured output
+- Registers with `ai_client_api` for dependency injection
+
+**[gemini_service](gemini_service/)** - FastAPI service exposing Gemini AI capabilities via HTTP.
+- REST API wrapper around `gemini_client_impl`
+- Provides `/generate` endpoint for AI responses
+- Health check and monitoring endpoints
+
+**[gemini_adapter](gemini_adapter/)** - Adapter connecting AIClient interface to Gemini service via HTTP.
+- Implements `AIClient` by delegating to remote Gemini service
+- Enables microservices architecture with HTTP communication
+- Uses auto-generated client from `gemini_ai_service_client`
+
+**[gemini_ai_service_client](gemini_ai_service_client/)** - Auto-generated HTTP client for Gemini service.
+- Type-safe Python bindings generated from OpenAPI spec
+- Provides sync and async methods for all endpoints
+- Do not manually edit - regenerate from service schema
+
+### Chat Client Layer
+
+**[chat_client_api](chat-client-api/)** - Abstract interface for chat platform operations.
+- Defines `ChatInterface` ABC for channel and message management
+- Standardizes operations across Discord, Slack, and other platforms
+- Supports message retrieval, sending, and deletion
+
+**[discord_client_impl](discord_client_impl/)** - Discord implementation of the chat interface.
+- Integrates with Discord's Gateway API
+- Provides channel and message management
+- Includes Discord bot setup and event handling
+
+**[slack_impl](slack_impl/)** - Slack implementation of the chat interface.
+- Integrates with Slack Web API
+- Supports channel operations and message posting
+- Provides real Slack API client for production use
+
+**[slack_adapter](slack_adapter/)** - Adapter for Slack API HTTP client.
+- Wraps Slack HTTP operations
+- Converts between interface contracts and Slack API
+- Handles Slack-specific authentication
+
+### Ticket Management Layer
+
+**[ticket_api](ticket_api/)** - Abstract interface for ticket/task management systems.
+- Defines `TicketInterface` for CRUD operations
+- Provides `TicketStatus` enum (OPEN, IN_PROGRESS, CLOSED)
+- Includes standardized adapters for different ticket systems
+
+**[ticket_impl](ticket_impl/)** - Jira ticket system implementation.
+- Concrete Jira integration using Jira REST API
+- Supports OAuth 2.0 authentication
+- Implements full ticket lifecycle management
+
+**[jira_client_impl](jira_client_impl/)** - Jira-specific client implementation.
+- Specialized Jira operations
+- OAuth credential management
+- Jira-specific field mapping
+
+**[gtask_client_impl](gtask_client_impl/)** - Google Tasks implementation.
+- Integrates with Google Tasks API
+- OAuth 2.0 authentication
+- Task creation and status management
+
+**[tickets_client_impl](tickets_client_impl/)** - Legacy Google Tasks client.
+- Alternative Google Tasks implementation
+- Backward compatibility support
+- Credential file-based authentication
+
+**[task_client_service](task_client_service/)** - Service for task client operations.
+- Additional task management utilities
+- Dependency management for ticket clients
+- Testing infrastructure
+
+### Orchestration Layer
+
+**[ai_chat_orchestrator](ai_chat_orchestrator/)** - Core orchestration logic coordinating AI, chat, and tickets.
+- Coordinates message flow between chat platforms and AI services
+- Maintains conversation history per channel
+- Routes ticket commands to appropriate systems (Jira/Google Tasks)
+- Tracks telemetry metrics (latency, success rates)
+- Provides factory functions for Discord and Slack orchestrators
+
+**[orchestrator_service](orchestrator_service/)** - FastAPI service providing unified HTTP API.
+- Single REST API for all platform integrations
+- Discord and Slack message processing endpoints
+- Jira and Google Tasks ticket management endpoints
+- Slack webhook handler with event deduplication
+- Health checks and metrics endpoints
+- Background task processing for long operations
+
+## Architecture Patterns
+
+### Dependency Injection
+
+All packages follow the dependency injection pattern:
+
+1. **Abstract Interface**: Define the contract (ABC)
+2. **Concrete Implementation**: Implement the interface
+3. **Registration**: Register implementation with API
+4. **Factory**: Use factory to create instances
+
+Example:
 ```python
-from gemini_ai_service_client import Client
+# Define interface
+from ai_client_api import AIClient
 
-client = Client(base_url="https://api.example.com")
+# Implement interface
+import gemini_client_impl
+gemini_client_impl.register()
+
+# Use via factory
+import ai_client_api
+client = ai_client_api.get_client(api_key="key")
 ```
 
-If the endpoints you're going to hit require authentication, use `AuthenticatedClient` instead:
+### Interface-Implementation Separation
 
-```python
-from gemini_ai_service_client import AuthenticatedClient
+Each domain has an API package (interface) and one or more implementation packages:
 
-client = AuthenticatedClient(base_url="https://api.example.com", token="SuperSecretToken")
+- `ai_client_api` → `gemini_client_impl`
+- `chat_client_api` → `discord_client_impl`, `slack_impl`
+- `ticket_api` → `ticket_impl`, `gtask_client_impl`
+
+Business logic depends only on the interface, enabling easy swapping of implementations.
+
+### Adapter Pattern
+
+Adapters translate between different interfaces:
+
+- `gemini_adapter`: Adapts HTTP client to `AIClient` interface
+- `slack_adapter`: Adapts Slack HTTP client to `ChatInterface`
+- `StandardizedTicketAdapter`: Adapts Jira client to common ticket interface
+- `AsyncStandardizedTicketAdapter`: Adds async support to sync ticket clients
+
+### Service Layer
+
+Services expose internal functionality via HTTP:
+
+- `gemini_service`: REST API for AI operations
+- `orchestrator_service`: Unified API for all integrations
+
+This enables microservices deployment and service-to-service communication.
+
+## Package Dependencies
+
+### Core Dependencies
+```
+ai_client_api → (no dependencies)
+gemini_client_impl → ai_client_api, google-generativeai
+chat_client_api → (no dependencies)
+ticket_api → (no dependencies)
 ```
 
-Now call your endpoint and use your models:
-
-```python
-from gemini_ai_service_client.models import MyDataModel
-from gemini_ai_service_client.api.my_tag import get_my_data_model
-from gemini_ai_service_client.types import Response
-
-with client as client:
-    my_data: MyDataModel = get_my_data_model.sync(client=client)
-    # or if you need more info (e.g. status_code)
-    response: Response[MyDataModel] = get_my_data_model.sync_detailed(client=client)
+### Service Dependencies
+```
+gemini_service → ai_client_api, gemini_client_impl, fastapi
+orchestrator_service → ai_chat_orchestrator, all client implementations, fastapi
 ```
 
-Or do the same thing with an async version:
-
-```python
-from gemini_ai_service_client.models import MyDataModel
-from gemini_ai_service_client.api.my_tag import get_my_data_model
-from gemini_ai_service_client.types import Response
-
-async with client as client:
-    my_data: MyDataModel = await get_my_data_model.asyncio(client=client)
-    response: Response[MyDataModel] = await get_my_data_model.asyncio_detailed(client=client)
+### Orchestrator Dependencies
+```
+ai_chat_orchestrator → ai_client_api, chat_client_api, ticket_api
 ```
 
-By default, when you're calling an HTTPS API it will attempt to verify that SSL is working correctly. Using certificate verification is highly recommended most of the time, but sometimes you may need to authenticate to a server (especially an internal server) using a custom certificate bundle.
+## Development Workflow
 
-```python
-client = AuthenticatedClient(
-    base_url="https://internal_api.example.com", 
-    token="SuperSecretToken",
-    verify_ssl="/path/to/certificate_bundle.pem",
-)
+### Adding a New Package
+
+1. Create package directory in `src/`
+2. Add `pyproject.toml` with dependencies
+3. Implement interface from corresponding API package
+4. Write comprehensive tests
+5. Create README.md documentation
+6. Register in workspace `pyproject.toml`
+
+### Testing Packages
+
+```bash
+# Test single package
+pytest src/ai_client_api/tests/
+
+# Test all packages
+pytest src/
+
+# Test with coverage
+pytest src/ --cov=src --cov-report=term-missing
 ```
 
-You can also disable certificate validation altogether, but beware that **this is a security risk**.
+### Code Quality
 
-```python
-client = AuthenticatedClient(
-    base_url="https://internal_api.example.com", 
-    token="SuperSecretToken", 
-    verify_ssl=False
-)
+All packages follow strict quality standards:
+
+```bash
+# Linting
+uv run ruff check src/
+
+# Formatting
+uv run ruff format src/
+
+# Type checking
+uv run mypy src/
 ```
 
-Things to know:
-1. Every path/method combo becomes a Python module with four functions:
-    1. `sync`: Blocking request that returns parsed data (if successful) or `None`
-    1. `sync_detailed`: Blocking request that always returns a `Request`, optionally with `parsed` set if the request was successful.
-    1. `asyncio`: Like `sync` but async instead of blocking
-    1. `asyncio_detailed`: Like `sync_detailed` but async instead of blocking
+## Package Structure
 
-1. All path/query params, and bodies become method arguments.
-1. If your endpoint had any tags on it, the first tag will be used as a module name for the function (my_tag above)
-1. Any endpoint which did not have a tag will be in `gemini_ai_service_client.api.default`
+Each package follows this structure:
 
-## Advanced customizations
-
-There are more settings on the generated `Client` class which let you control more runtime behavior, check out the docstring on that class for more info. You can also customize the underlying `httpx.Client` or `httpx.AsyncClient` (depending on your use-case):
-
-```python
-from gemini_ai_service_client import Client
-
-def log_request(request):
-    print(f"Request event hook: {request.method} {request.url} - Waiting for response")
-
-def log_response(response):
-    request = response.request
-    print(f"Response event hook: {request.method} {request.url} - Status {response.status_code}")
-
-client = Client(
-    base_url="https://api.example.com",
-    httpx_args={"event_hooks": {"request": [log_request], "response": [log_response]}},
-)
-
-# Or get the underlying httpx client to modify directly with client.get_httpx_client() or client.get_async_httpx_client()
+```
+package_name/
+├── pyproject.toml          # Package metadata and dependencies
+├── README.md               # Package documentation
+├── src/
+│   └── package_name/
+│       ├── __init__.py     # Public API exports
+│       ├── module.py       # Implementation files
+│       └── tests/          # Unit tests
+│           └── test_*.py
+└── .python-version         # Python version
 ```
 
-You can even set the httpx client directly, but beware that this will override any existing settings (e.g., base_url):
+## Testing Strategy
 
-```python
-import httpx
-from gemini_ai_service_client import Client
+### Unit Tests
+- Located in each package's `tests/` directory
+- Mock external dependencies
+- Fast execution, no network calls
+- Run in CI/CD pipeline
 
-client = Client(
-    base_url="https://api.example.com",
-)
-# Note that base_url needs to be re-set, as would any shared cookies, headers, etc.
-client.set_httpx_client(httpx.Client(base_url="https://api.example.com", proxies="http://localhost:8030"))
+### Integration Tests
+- Located in `tests/integration/`
+- Test interactions between packages
+- May require credentials
+- Marked with `@pytest.mark.integration`
+
+### End-to-End Tests
+- Located in `tests/e2e/`
+- Test full workflows across services
+- Require all credentials
+- Marked with `@pytest.mark.e2e`
+
+## Deployment
+
+### Local Development
+```bash
+uv sync --all-packages --extra dev
+uv run uvicorn orchestrator_service.api:app --reload
 ```
 
-## Building / publishing this package
-This project uses [Poetry](https://python-poetry.org/) to manage dependencies  and packaging.  Here are the basics:
-1. Update the metadata in pyproject.toml (e.g. authors, version)
-1. If you're using a private repository, configure it with Poetry
-    1. `poetry config repositories.<your-repository-name> <url-to-your-repository>`
-    1. `poetry config http-basic.<your-repository-name> <username> <password>`
-1. Publish the client with `poetry publish --build -r <your-repository-name>` or, if for public PyPI, just `poetry publish --build`
+### Docker
+```bash
+docker build -t orchestrator-service .
+docker run -p 8080:8080 orchestrator-service
+```
 
-If you want to install this client into another project without publishing it (e.g. for development) then:
-1. If that project **is using Poetry**, you can simply do `poetry add <path-to-this-client>` from that project
-1. If that project is not using Poetry:
-    1. Build a wheel with `poetry build -f wheel`
-    1. Install that wheel from the other project `pip install <path-to-wheel>`
+### Cloud (GCP Cloud Run)
+```bash
+gcloud run deploy orchestrator-service \
+  --source . \
+  --region us-central1 \
+  --set-env-vars GEMINI_API_KEY=key
+```
+
+## Documentation
+
+Each package includes:
+- README.md with usage examples
+- Docstrings on all public classes and methods
+- Type hints for all function signatures
+- Architecture and design principle documentation
+
+API documentation is auto-generated using MkDocs:
+```bash
+uv run mkdocs serve
+```
+
+## Design Principles
+
+### Component-Based Design
+Each package is self-contained and reusable across projects.
+
+### Interface Stability
+Abstract interfaces remain stable; implementations can change freely.
+
+### Dependency Direction
+Dependencies flow from concrete implementations toward abstractions, never the reverse.
+
+### Testing Isolation
+Packages can be tested independently with mocked dependencies.
+
+### Type Safety
+All packages use comprehensive type hints validated by mypy.
+
+### Minimal Coupling
+Packages depend only on abstract interfaces, not concrete implementations.

@@ -2,15 +2,9 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 from typing import Any
 
 from chat_client_api import ChatInterface, Message
-
-# Add slack_impl to path
-slack_impl_path = Path(__file__).parent.parent.parent.parent.parent / "slack_impl/src"
-sys.path.insert(0, str(slack_impl_path))
 
 from slack_impl import SlackClient
 
@@ -35,7 +29,6 @@ class SlackMessageAdapter(Message):
     @property
     def sender_id(self) -> str:
         """Return sender ID."""
-        # slack_impl.Message doesn't have sender_id, use empty string
         return ""
 
 
@@ -93,8 +86,6 @@ class SlackChatClient(ChatInterface):
         Returns:
             bool: True if the message was successfully deleted, False otherwise.
         """
-        # Slack API requires chat.delete which isn't in slack_impl
-        # Return True as a no-op for now
         return True
 
     def close(self) -> None:

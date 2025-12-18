@@ -6,10 +6,12 @@ This package defines the base contract for ticket operations including:
 - Custom exceptions (ServiceError, TicketNotFoundError)
 - Standardized interface (TicketInterface, Ticket, TicketStatus) for cross-vertical integration
 - Adapter (StandardizedTicketAdapter) to expose standardized interface from internal API
+- Async adapter (AsyncStandardizedTicketAdapter) for async contexts like FastAPI
 """
 
 from .adapter import SimpleTicket as SimpleTicket
 from .adapter import StandardizedTicketAdapter as StandardizedTicketAdapter
+from .async_adapter import AsyncStandardizedTicketAdapter as AsyncStandardizedTicketAdapter
 from .exceptions import ServiceError as ServiceError
 from .exceptions import TicketNotFoundError as TicketNotFoundError
 from .interface import TicketServiceAPI as TicketServiceAPI

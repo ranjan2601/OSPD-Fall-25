@@ -82,5 +82,4 @@ def register() -> None:
     chat_client_api.get_channel = get_channel_impl  # type: ignore[attr-defined]
 
 
-# Auto-register on import (side-effect import pattern)
 register()

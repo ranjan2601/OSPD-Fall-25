@@ -9,9 +9,6 @@ import ai_client_api
 import gemini_client_impl
 from gemini_client_impl.client import GeminiClient, get_client_impl, register
 
-import importlib
-from ai_client_api import client as client_module
-
 
 class TestGeminiClientInit:
     """Test GeminiClient initialization."""
@@ -33,7 +30,7 @@ class TestGeminiClientInit:
         with patch("gemini_client_impl.client.genai") as mock_genai:
             GeminiClient(api_key="test-key")
             mock_genai.configure.assert_called_once_with(api_key="test-key")
-            mock_genai.GenerativeModel.assert_called_once_with("gemini-2.0-flash")
+            mock_genai.GenerativeModel.assert_called_once_with("gemini-3-flash-preview")
 
 
 class TestGeminiClientGenerateResponse:
@@ -106,6 +103,8 @@ class TestDependencyInjection:
     @pytest.fixture(autouse=True)
     def save_original_factory(self) -> Generator[None, None, None]:
         """Save and restore original factory."""
+        import importlib
+        from ai_client_api import client as client_module
 
         importlib.reload(client_module)
         original = client_module.get_client

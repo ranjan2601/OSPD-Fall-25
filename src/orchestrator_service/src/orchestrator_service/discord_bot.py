@@ -4,6 +4,7 @@ This module provides Discord WebSocket Gateway integration to listen for
 messages and respond automatically using the orchestrator.
 """
 
+import asyncio
 import logging
 import os
 from typing import Any
@@ -27,9 +28,8 @@ class DiscordBot:
         """
         self.token = token
 
-        # Create bot with required intents
         intents = discord.Intents.default()
-        intents.message_content = True  # Required to read message content
+        intents.message_content = True
         intents.messages = True
         intents.guilds = True
 
@@ -52,15 +52,12 @@ class DiscordBot:
             Args:
                 message: Discord message object
             """
-            # Ignore messages from the bot itself
             if message.author == self.bot.user:
                 return
 
-            # Ignore DMs (only respond in guild channels)
             if not message.guild:
                 return
 
-            # Ignore bot commands (starting with !)
             if message.content.startswith("!"):
                 await self.bot.process_commands(message)
                 return
@@ -72,16 +69,18 @@ class DiscordBot:
             channel_name = getattr(message.channel, "name", "DM")
             logger.info(f"Discord message in #{channel_name}: {user_input[:50]}...")
 
-            # Process through orchestrator
             try:
                 orchestrator = get_discord_orchestrator()
-                response = orchestrator.process_direct(channel_id=str(message.channel.id), user_input=user_input)
+
+                response = await asyncio.to_thread(
+                    orchestrator.process_direct,
+                    channel_id=str(message.channel.id),
+                    user_input=user_input,
+                )
 
                 if response:
+                    await message.channel.send(response)
                     logger.info(f"Response sent to Discord #{channel_name}")
-                    # Response already sent via Discord REST API in orchestrator
-                    # But we can also send via discord.py as backup:
-                    # await message.channel.send(response)
                 else:
                     await message.channel.send("Sorry, I couldn't process that request.")
                     logger.error("No response from orchestrator")
@@ -136,7 +135,6 @@ I can help you with Jira tickets and Google Tasks!
         await self.bot.close()
 
 
-# Global bot instance
 _discord_bot: DiscordBot | None = None
 
 

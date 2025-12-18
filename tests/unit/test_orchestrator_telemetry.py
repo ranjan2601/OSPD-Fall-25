@@ -100,20 +100,20 @@ def test_multiple_requests_aggregate_metrics() -> None:
 
     mock_chat = Mock()
 
-    # Create different mock messages for each request
-    mock_msg1 = Mock()
-    mock_msg1.id = "msg1"
-    mock_msg1.content = "Hello"
+    # Create different messages for each call
+    mock_message1 = Mock()
+    mock_message1.id = "msg1"
+    mock_message1.content = "Hello"
 
-    mock_msg2 = Mock()
-    mock_msg2.id = "msg2"
-    mock_msg2.content = "Hello"
+    mock_message2 = Mock()
+    mock_message2.id = "msg2"
+    mock_message2.content = "Hello"
 
-    mock_msg3 = Mock()
-    mock_msg3.id = "msg3"
-    mock_msg3.content = "Hello"
+    mock_message3 = Mock()
+    mock_message3.id = "msg3"
+    mock_message3.content = "Hello"
 
-    mock_chat.get_messages.side_effect = [[mock_msg1], [mock_msg2], [mock_msg3]]
+    mock_chat.get_messages.side_effect = [[mock_message1], [mock_message2], [mock_message3]]
     mock_chat.send_message.side_effect = [True, True, False]  # 2 success, 1 failure
 
     orchestrator = AIChatOrchestrator(ai_client=mock_ai, chat_client=mock_chat)

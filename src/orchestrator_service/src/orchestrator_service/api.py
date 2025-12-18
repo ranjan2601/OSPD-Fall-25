@@ -1,21 +1,23 @@
 """FastAPI routes for AI-Chat Orchestrator service."""
 
+import asyncio
 import logging
 import os
+import time
 from typing import Any
 
-import chat_client_api  # type: ignore[import]
 from ai_chat_orchestrator.orchestrator import AIChatOrchestrator
 from ai_chat_orchestrator.slack_chat_client import SlackChatClient
 from ai_client_api.credential import resolve_api_key
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from gemini_client_impl.client import GeminiClient
 from pydantic import BaseModel, Field
+from ticket_api.shared_interface import TicketStatus as JiraTicketStatus
 from tickets_client_impl import TicketsClient
 
 import discord_client_impl  # noqa: F401
 import gemini_client_impl
-from ticket_api import StandardizedTicketAdapter
+from ticket_api import AsyncStandardizedTicketAdapter, StandardizedTicketAdapter
 from ticket_impl import TicketImpl
 from tickets_api import TicketInterface, TicketStatus
 
@@ -23,45 +25,63 @@ gemini_client_impl.register()
 
 logger = logging.getLogger(__name__)
 
+_processed_slack_events: dict[str, float] = {}
+_EVENT_CACHE_TTL = 600
+
 router = APIRouter()
 
-# Global orchestrator instances for different providers
 _discord_orchestrator: Any = None
 _slack_orchestrator: Any = None
 _jira_ticket_client: TicketInterface | None = None
+_jira_async_ticket_client: AsyncStandardizedTicketAdapter | None = None
 _gtasks_ticket_client: TicketInterface | None = None
 
 
+class NoOpChatClient:
+    """No-op chat client for Discord Gateway bot (messages sent via discord.py instead)."""
+
+    def send_message(self, channel_id: str, message: str) -> bool:
+        """No-op send - Discord Gateway bot handles sending via discord.py."""
+        return True
+
+    def get_messages(self, channel_id: str, limit: int = 100) -> list[dict[str, str]]:
+        """No-op get messages - not needed for Gateway bot."""
+        return []
+
+
 def get_discord_orchestrator() -> Any:
-    """Get or create the Discord orchestrator instance with Jira integration."""
+    """Get or create the Discord orchestrator instance with both Jira and Google Tasks."""
     global _discord_orchestrator
     if _discord_orchestrator is None:
         try:
             gemini_api_key = resolve_api_key(user_id="service", provider="gemini")
-            discord_user_id = os.getenv("DISCORD_USER_ID")
-
-            # Create Discord orchestrator with Jira ticket client
 
             gemini_client_impl.register()
-            discord_client_impl.register()
 
             ai_client = GeminiClient(api_key=gemini_api_key)
 
-            chat_client = chat_client_api.get_client(user_id=discord_user_id)  # type: ignore[attr-defined]
+            chat_client = NoOpChatClient()
 
-            # Get Jira ticket client if configured
-            ticket_client = None
+            jira_client = None
             try:
-                ticket_client = get_jira_ticket_client()
+                jira_client = get_jira_ticket_client()
                 logger.info("Jira ticket integration enabled for Discord")
             except Exception as e:
                 logger.warning(f"Jira ticket integration not available: {e}")
+
+            gtasks_client = None
+            try:
+                gtasks_client = get_gtasks_ticket_client()
+                logger.info("Google Tasks integration enabled for Discord")
+            except Exception as e:
+                logger.warning(f"Google Tasks integration not available: {e}")
 
             _discord_orchestrator = AIChatOrchestrator(
                 ai_client=ai_client,
                 chat_client=chat_client,
                 system_prompt="You are a helpful AI assistant in a Discord channel.",
-                ticket_client=ticket_client,
+                jira_client=jira_client,
+                gtasks_client=gtasks_client,
             )
             logger.info("Discord orchestrator initialized successfully")
         except ValueError as e:
@@ -71,7 +91,7 @@ def get_discord_orchestrator() -> Any:
 
 
 def get_slack_orchestrator() -> Any:
-    """Get or create the Slack orchestrator instance with Jira integration."""
+    """Get or create the Slack orchestrator instance with both Jira and Google Tasks."""
     global _slack_orchestrator
     if _slack_orchestrator is None:
         try:
@@ -79,25 +99,30 @@ def get_slack_orchestrator() -> Any:
             slack_token = os.getenv("SLACK_BOT_TOKEN", "")
             slack_base_url = os.getenv("SLACK_BASE_URL", "https://slack.com/api")
 
-            # Create Slack orchestrator with Jira ticket client
-
             gemini_client_impl.register()
             ai_client = GeminiClient(api_key=gemini_api_key)
             chat_client = SlackChatClient(base_url=slack_base_url, token=slack_token)
 
-            # Get Jira ticket client if configured
-            ticket_client = None
+            jira_client = None
             try:
-                ticket_client = get_jira_ticket_client()
+                jira_client = get_jira_ticket_client()
                 logger.info("Jira ticket integration enabled for Slack")
             except Exception as e:
                 logger.warning(f"Jira ticket integration not available: {e}")
+
+            gtasks_client = None
+            try:
+                gtasks_client = get_gtasks_ticket_client()
+                logger.info("Google Tasks integration enabled for Slack")
+            except Exception as e:
+                logger.warning(f"Google Tasks integration not available: {e}")
 
             _slack_orchestrator = AIChatOrchestrator(
                 ai_client=ai_client,
                 chat_client=chat_client,
                 system_prompt="You are a helpful AI assistant in a Slack channel.",
-                ticket_client=ticket_client,
+                jira_client=jira_client,
+                gtasks_client=gtasks_client,
             )
             logger.info("Slack orchestrator initialized successfully")
         except ValueError as e:
@@ -107,23 +132,38 @@ def get_slack_orchestrator() -> Any:
 
 
 def get_jira_ticket_client() -> TicketInterface:
-    """Get or create the Jira ticket client instance."""
+    """Get or create the Jira ticket client instance (sync version for orchestrator)."""
     global _jira_ticket_client
     if _jira_ticket_client is None:
         try:
-            # Initialize Jira client with default user and project
-            # TODO: Get these from environment variables or configuration
             user_id = os.getenv("JIRA_USER_ID", "default_user")
             project_key = os.getenv("JIRA_PROJECT_KEY", "PROJ")
             jira_impl = TicketImpl(user_id=user_id, project_key=project_key)
-            # Wrap with adapter to expose TicketInterface
+
             _jira_ticket_client = StandardizedTicketAdapter(jira_impl)  # type: ignore[assignment]
             logger.info("Jira ticket client initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize Jira ticket client: {e}")
             raise HTTPException(status_code=500, detail=str(e)) from e
-    assert _jira_ticket_client is not None  # Guaranteed by initialization above
+    assert _jira_ticket_client is not None
     return _jira_ticket_client
+
+
+def get_jira_async_ticket_client() -> AsyncStandardizedTicketAdapter:
+    """Get or create the async Jira ticket client instance (for FastAPI endpoints)."""
+    global _jira_async_ticket_client
+    if _jira_async_ticket_client is None:
+        try:
+            user_id = os.getenv("JIRA_USER_ID", "default_user")
+            project_key = os.getenv("JIRA_PROJECT_KEY", "PROJ")
+            jira_impl = TicketImpl(user_id=user_id, project_key=project_key)
+            _jira_async_ticket_client = AsyncStandardizedTicketAdapter(jira_impl)
+            logger.info("Async Jira ticket client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize async Jira ticket client: {e}")
+            raise HTTPException(status_code=500, detail=str(e)) from e
+    assert _jira_async_ticket_client is not None
+    return _jira_async_ticket_client
 
 
 def get_gtasks_ticket_client() -> TicketInterface:
@@ -131,7 +171,6 @@ def get_gtasks_ticket_client() -> TicketInterface:
     global _gtasks_ticket_client
     if _gtasks_ticket_client is None:
         try:
-            # Initialize Google Tasks client
             _gtasks_ticket_client = TicketsClient()
             logger.info("Google Tasks ticket client initialized successfully")
         except Exception as e:
@@ -140,7 +179,6 @@ def get_gtasks_ticket_client() -> TicketInterface:
     return _gtasks_ticket_client
 
 
-# Pydantic models
 class ProcessMessageRequest(BaseModel):
     """Request model for processing a message."""
 
@@ -203,7 +241,6 @@ class HealthCheckResponse(BaseModel):
     version: str = Field(default="1.0.0", description="Service version")
 
 
-# Health endpoint
 @router.get("/health", response_model=HealthCheckResponse)
 async def health_check() -> HealthCheckResponse:
     """Health check endpoint for monitoring service availability."""
@@ -214,7 +251,6 @@ async def health_check() -> HealthCheckResponse:
     )
 
 
-# Discord endpoints
 @router.post("/discord/process", response_model=ProcessMessageResponse)
 async def process_discord_message(request: ProcessMessageRequest) -> ProcessMessageResponse:
     """Process a Discord message with AI orchestration."""
@@ -269,7 +305,6 @@ async def get_discord_metrics() -> MetricsResponse:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-# Slack endpoints
 @router.post("/slack/process", response_model=ProcessMessageResponse)
 async def process_slack_message(request: ProcessMessageRequest) -> ProcessMessageResponse:
     """Process a Slack message with AI orchestration."""
@@ -324,9 +359,6 @@ async def get_slack_metrics() -> MetricsResponse:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-# ==================== Ticketing Endpoints ====================
-
-
 class CreateTicketRequest(BaseModel):
     """Request model for creating a ticket."""
 
@@ -351,13 +383,12 @@ class TicketListResponse(BaseModel):
     tickets: list[TicketResponse] = Field(..., description="List of tickets")
 
 
-# Jira Endpoints
 @router.post("/jira/tickets", response_model=TicketResponse)
 async def create_jira_ticket(request: CreateTicketRequest) -> TicketResponse:
     """Create a new Jira ticket."""
     try:
-        client = get_jira_ticket_client()
-        ticket = client.create_ticket(
+        client = get_jira_async_ticket_client()
+        ticket = await client.create_ticket(
             title=request.title,
             description=request.description,
             assignee=request.assignee,
@@ -378,8 +409,8 @@ async def create_jira_ticket(request: CreateTicketRequest) -> TicketResponse:
 async def get_jira_ticket(ticket_id: str) -> TicketResponse:
     """Get a Jira ticket by ID."""
     try:
-        client = get_jira_ticket_client()
-        ticket = client.get_ticket(ticket_id)
+        client = get_jira_async_ticket_client()
+        ticket = await client.get_ticket(ticket_id)
         if ticket is None:
             raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found")
         return TicketResponse(
@@ -400,9 +431,9 @@ async def get_jira_ticket(ticket_id: str) -> TicketResponse:
 async def search_jira_tickets(query: str | None = None, status: str | None = None) -> TicketListResponse:
     """Search Jira tickets."""
     try:
-        client = get_jira_ticket_client()
-        ticket_status = TicketStatus(status) if status else None
-        tickets = client.search_tickets(query=query, status=ticket_status)
+        client = get_jira_async_ticket_client()
+        ticket_status = JiraTicketStatus(status) if status else None
+        tickets = await client.search_tickets(query=query, status=ticket_status)
         return TicketListResponse(
             tickets=[
                 TicketResponse(
@@ -420,7 +451,6 @@ async def search_jira_tickets(query: str | None = None, status: str | None = Non
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-# Google Tasks Endpoints
 @router.post("/gtasks/tickets", response_model=TicketResponse)
 async def create_gtasks_ticket(request: CreateTicketRequest) -> TicketResponse:
     """Create a new Google Tasks ticket."""
@@ -489,7 +519,56 @@ async def search_gtasks_tickets(query: str | None = None, status: str | None = N
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-# ==================== Slack Webhook Endpoint ====================
+def _cleanup_event_cache() -> None:
+    """Remove expired events from the deduplication cache."""
+    current_time = time.time()
+    expired_keys = [
+        event_id
+        for event_id, timestamp in _processed_slack_events.items()
+        if current_time - timestamp > _EVENT_CACHE_TTL
+    ]
+    for key in expired_keys:
+        del _processed_slack_events[key]
+
+
+def _is_duplicate_event(event_id: str) -> bool:
+    """Check if event has already been processed."""
+    _cleanup_event_cache()
+    if event_id in _processed_slack_events:
+        return True
+    _processed_slack_events[event_id] = time.time()
+    return False
+
+
+async def _process_slack_message_background(channel_id: str, user_input: str) -> None:
+    """Background task to process Slack message without blocking webhook response."""
+    try:
+        logger.info(f"Background processing Slack message from channel {channel_id}: {user_input[:50]}...")
+        orchestrator = get_slack_orchestrator()
+        response = await asyncio.to_thread(
+            orchestrator.process_direct,
+            channel_id=channel_id,
+            user_input=user_input,
+        )
+        if response:
+            logger.info(f"AI response sent to Slack channel {channel_id}")
+        else:
+            logger.error("Failed to get AI response")
+            try:
+                orchestrator.chat_client.send_message(
+                    channel_id, "Sorry, I encountered an error processing your request. Please try again later."
+                )
+            except Exception:
+                logger.exception("Failed to send error message to user")
+    except Exception as e:
+        logger.exception(f"Error in background Slack message processing: {e}")
+        try:
+            orchestrator = get_slack_orchestrator()
+            orchestrator.chat_client.send_message(
+                channel_id, "Sorry, I encountered an unexpected error. Please try again later."
+            )
+        except Exception:
+            logger.exception("Failed to send error message to user after exception")
 
 
 class SlackEventRequest(BaseModel):
@@ -498,32 +577,42 @@ class SlackEventRequest(BaseModel):
     type: str = Field(..., description="Event type")
     challenge: str | None = Field(None, description="Challenge for URL verification")
     event: dict[str, Any] | None = Field(None, description="Event data")
+    event_id: str | None = Field(None, description="Unique event ID for deduplication")
+
+    class Config:
+        extra = "allow"
 
 
 @router.post("/webhook/slack")
-async def slack_webhook(request: SlackEventRequest) -> dict[str, Any]:
+async def slack_webhook(request: SlackEventRequest, background_tasks: BackgroundTasks) -> dict[str, Any]:
     """Handle incoming Slack events.
 
     This endpoint handles:
     1. URL verification challenge from Slack
     2. Message events from channels where the bot is present
+
+    IMPORTANT: Returns 200 OK immediately to prevent Slack retries.
+    Message processing happens asynchronously in the background.
     """
     try:
-        # Handle URL verification challenge
         if request.type == "url_verification":
             logger.info("Received Slack URL verification challenge")
             if request.challenge:
                 return {"challenge": request.challenge}
             raise HTTPException(status_code=400, detail="Challenge missing from verification request")
 
-        # Handle message events
         if request.type == "event_callback" and request.event:
             event = request.event
             event_type = event.get("type")
 
-            # Only process message events in channels (not DMs, not bot messages)
-            if event_type == "message" and event.get("channel_type") == "channel":
-                # Ignore bot messages to prevent loops
+            event_id = request.event_id or event.get("event_ts", "")
+            if event_id and _is_duplicate_event(event_id):
+                logger.info(f"Ignoring duplicate Slack event: {event_id}")
+                return {"ok": True}
+
+            logger.info(f"Received Slack event: type={event_type}, event_id={event_id}")
+
+            if event_type == "message":
                 if event.get("bot_id") or event.get("subtype") == "bot_message":
                     logger.debug("Ignoring bot message to prevent loop")
                     return {"ok": True}
@@ -532,19 +621,14 @@ async def slack_webhook(request: SlackEventRequest) -> dict[str, Any]:
                 user_input = event.get("text", "")
 
                 if channel_id and user_input:
-                    logger.info(f"Processing Slack message from channel {channel_id}: {user_input[:50]}...")
-
-                    # Process the message through orchestrator
-                    orchestrator = get_slack_orchestrator()
-                    response = orchestrator.process_direct(
+                    background_tasks.add_task(
+                        _process_slack_message_background,
                         channel_id=channel_id,
                         user_input=user_input,
                     )
-
-                    if response:
-                        logger.info(f"AI response sent to Slack channel {channel_id}")
-                    else:
-                        logger.error("Failed to get AI response")
+                    logger.info(f"Queued Slack message for background processing: {event_id}")
+                else:
+                    logger.warning(f"Skipping message - channel_id={channel_id}, has_text={bool(user_input)}")
 
         return {"ok": True}
 
@@ -552,5 +636,4 @@ async def slack_webhook(request: SlackEventRequest) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.exception("Error processing Slack webhook")
-        # Return 200 to acknowledge receipt even on error (Slack retries otherwise)
-        return {"ok": False, "error": str(e)}
+        return {"ok": True, "error": str(e)}

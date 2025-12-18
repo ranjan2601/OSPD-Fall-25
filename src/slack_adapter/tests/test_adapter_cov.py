@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from chat_client_api import Message
+from chat_client_api import Message  # only for runtime construction
 
 from slack_adapter import (
     ServiceAdapter,
