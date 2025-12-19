@@ -49,6 +49,137 @@ class TestHealthEndpoint:
         assert "version" in data
 
 
+class TestErrorHandling:
+    """Test error handling in various endpoints."""
+
+    def test_discord_process_exception_handling(self, app_client: Any, mock_orchestrator: Any) -> None:
+        """Test Discord process endpoint handles exceptions properly."""
+        mock_orchestrator.process_direct.side_effect = Exception("Test error")
+
+        with patch("orchestrator_service.api.get_discord_orchestrator", return_value=mock_orchestrator):
+            response = app_client.post(
+                "/discord/process",
+                json={"channel_id": "channel123", "user_input": "Hello"},
+            )
+
+            assert response.status_code == 500
+
+    def test_slack_process_exception_handling(self, app_client: Any, mock_orchestrator: Any) -> None:
+        """Test Slack process endpoint handles exceptions properly."""
+        mock_orchestrator.process_direct.side_effect = Exception("Test error")
+
+        with patch("orchestrator_service.api.get_slack_orchestrator", return_value=mock_orchestrator):
+            response = app_client.post(
+                "/slack/process",
+                json={"channel_id": "C123", "user_input": "Hello"},
+            )
+
+            assert response.status_code == 500
+
+    def test_jira_create_ticket_exception_handling(self, app_client: Any) -> None:
+        """Test Jira create ticket handles exceptions."""
+        mock_async_client = Mock()
+        mock_async_client.create_ticket = AsyncMock(side_effect=Exception("Jira error"))
+
+        with patch("orchestrator_service.api.get_jira_async_ticket_client", return_value=mock_async_client):
+            response = app_client.post(
+                "/jira/tickets",
+                json={"title": "Test", "description": "Test"},
+            )
+
+            assert response.status_code == 500
+
+    def test_gtasks_create_ticket_exception_handling(self, app_client: Any) -> None:
+        """Test GTasks create ticket handles exceptions."""
+        mock_client = Mock()
+        mock_client.create_ticket.side_effect = Exception("GTasks error")
+
+        with patch("orchestrator_service.api.get_gtasks_ticket_client", return_value=mock_client):
+            response = app_client.post(
+                "/gtasks/tickets",
+                json={"title": "Test", "description": "Test"},
+            )
+
+            assert response.status_code == 500
+
+    def test_discord_channels_exception_handling(self, app_client: Any, mock_orchestrator: Any) -> None:
+        """Test Discord channels endpoint handles exceptions."""
+        mock_orchestrator.chat_client.get_channels.side_effect = Exception("Channel error")
+
+        with patch("orchestrator_service.api.get_discord_orchestrator", return_value=mock_orchestrator):
+            response = app_client.get("/discord/channels")
+
+            assert response.status_code == 500
+
+    def test_slack_channels_exception_handling(self, app_client: Any, mock_orchestrator: Any) -> None:
+        """Test Slack channels endpoint handles exceptions."""
+        mock_orchestrator.chat_client.get_channels.side_effect = Exception("Channel error")
+
+        with patch("orchestrator_service.api.get_slack_orchestrator", return_value=mock_orchestrator):
+            response = app_client.get("/slack/channels")
+
+            assert response.status_code == 500
+
+    def test_jira_get_ticket_exception_handling(self, app_client: Any) -> None:
+        """Test Jira get ticket handles exceptions (non-404)."""
+        valid_uuid = "12345678-1234-5678-1234-567812345678"
+        mock_async_client = Mock()
+        mock_async_client.get_ticket = AsyncMock(side_effect=Exception("Database error"))
+
+        with patch("orchestrator_service.api.get_jira_async_ticket_client", return_value=mock_async_client):
+            response = app_client.get(f"/jira/tickets/{valid_uuid}")
+
+            assert response.status_code == 500
+
+    def test_gtasks_get_ticket_exception_handling(self, app_client: Any) -> None:
+        """Test GTasks get ticket handles exceptions (non-404)."""
+        mock_client = Mock()
+        mock_client.get_ticket.side_effect = Exception("API error")
+
+        with patch("orchestrator_service.api.get_gtasks_ticket_client", return_value=mock_client):
+            response = app_client.get("/gtasks/tickets/task-123")
+
+            assert response.status_code == 500
+
+    def test_jira_search_tickets_exception_handling(self, app_client: Any) -> None:
+        """Test Jira search tickets handles exceptions."""
+        mock_async_client = Mock()
+        mock_async_client.search_tickets = AsyncMock(side_effect=Exception("Search error"))
+
+        with patch("orchestrator_service.api.get_jira_async_ticket_client", return_value=mock_async_client):
+            response = app_client.get("/jira/tickets")
+
+            assert response.status_code == 500
+
+    def test_gtasks_search_tickets_exception_handling(self, app_client: Any) -> None:
+        """Test GTasks search tickets handles exceptions."""
+        mock_client = Mock()
+        mock_client.search_tickets.side_effect = Exception("Search error")
+
+        with patch("orchestrator_service.api.get_gtasks_ticket_client", return_value=mock_client):
+            response = app_client.get("/gtasks/tickets")
+
+            assert response.status_code == 500
+
+    def test_discord_metrics_exception_handling(self, app_client: Any, mock_orchestrator: Any) -> None:
+        """Test Discord metrics endpoint handles exceptions."""
+        mock_orchestrator.get_metrics.side_effect = Exception("Metrics error")
+
+        with patch("orchestrator_service.api.get_discord_orchestrator", return_value=mock_orchestrator):
+            response = app_client.get("/discord/metrics")
+
+            assert response.status_code == 500
+
+    def test_slack_metrics_exception_handling(self, app_client: Any, mock_orchestrator: Any) -> None:
+        """Test Slack metrics endpoint handles exceptions."""
+        mock_orchestrator.get_metrics.side_effect = Exception("Metrics error")
+
+        with patch("orchestrator_service.api.get_slack_orchestrator", return_value=mock_orchestrator):
+            response = app_client.get("/slack/metrics")
+
+            assert response.status_code == 500
+
+
 class TestDiscordEndpoints:
     """Test Discord-related endpoints."""
 
@@ -178,7 +309,7 @@ class TestJiraEndpoints:
 
     def test_create_jira_ticket_success(self, app_client: Any) -> None:
         """Test creating a Jira ticket."""
-        from ticket_api.shared_interface import Ticket, TicketStatus
+        from tickets_api import Ticket, TicketStatus
 
         mock_ticket = Mock(spec=Ticket)
         mock_ticket.id = "12345678-1234-5678-1234-567812345678"  # Valid UUID
@@ -206,7 +337,7 @@ class TestJiraEndpoints:
 
     def test_get_jira_ticket_success(self, app_client: Any) -> None:
         """Test getting a Jira ticket by ID."""
-        from ticket_api.shared_interface import Ticket, TicketStatus
+        from tickets_api import Ticket, TicketStatus
 
         valid_uuid = "12345678-1234-5678-1234-567812345678"
         mock_ticket = Mock(spec=Ticket)
@@ -239,7 +370,7 @@ class TestJiraEndpoints:
 
     def test_list_jira_tickets_success(self, app_client: Any) -> None:
         """Test listing Jira tickets."""
-        from ticket_api.shared_interface import Ticket, TicketStatus
+        from tickets_api import Ticket, TicketStatus
 
         mock_ticket = Mock(spec=Ticket)
         mock_ticket.id = "12345678-1234-5678-1234-567812345678"
@@ -346,3 +477,74 @@ class TestGTasksEndpoints:
             data = response.json()
             assert "tickets" in data
             assert len(data["tickets"]) == 1
+
+
+class TestTicketSearchEndpoints:
+    """Test ticket search functionality with filters."""
+
+    def test_search_jira_tickets_with_query(self, app_client: Any) -> None:
+        """Test searching Jira tickets with query parameter."""
+        from tickets_api import Ticket, TicketStatus
+
+        mock_ticket = Mock(spec=Ticket)
+        mock_ticket.id = "12345678-1234-5678-1234-567812345678"
+        mock_ticket.title = "Bug fix"
+        mock_ticket.description = "Fix the bug"
+        mock_ticket.status = TicketStatus.OPEN
+        mock_ticket.assignee = "dev@example.com"
+
+        mock_async_client = Mock()
+        mock_async_client.search_tickets = AsyncMock(return_value=[mock_ticket])
+
+        with patch("orchestrator_service.api.get_jira_async_ticket_client", return_value=mock_async_client):
+            response = app_client.get("/jira/tickets?query=bug")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data["tickets"]) == 1
+            assert data["tickets"][0]["title"] == "Bug fix"
+
+    def test_search_jira_tickets_with_status(self, app_client: Any) -> None:
+        """Test searching Jira tickets with status filter."""
+        from tickets_api import Ticket, TicketStatus
+
+        mock_ticket = Mock(spec=Ticket)
+        mock_ticket.id = "12345678-1234-5678-1234-567812345678"
+        mock_ticket.title = "Active task"
+        mock_ticket.description = "Task description"
+        mock_ticket.status = TicketStatus.IN_PROGRESS
+        mock_ticket.assignee = "dev@example.com"
+
+        mock_async_client = Mock()
+        mock_async_client.search_tickets = AsyncMock(return_value=[mock_ticket])
+
+        with patch("orchestrator_service.api.get_jira_async_ticket_client", return_value=mock_async_client):
+            # Use the correct enum value "in_progress" not "IN_PROGRESS"
+            response = app_client.get("/jira/tickets?status=in_progress")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data["tickets"]) == 1
+
+    def test_search_gtasks_tickets_with_query(self, app_client: Any) -> None:
+        """Test searching Google Tasks tickets with query parameter."""
+        from tickets_api import Ticket as GTTicket
+        from tickets_api import TicketStatus as GTTicketStatus
+
+        mock_ticket = Mock(spec=GTTicket)
+        mock_ticket.id = "task-456"
+        mock_ticket.title = "Important task"
+        mock_ticket.description = "Do this task"
+        mock_ticket.status = GTTicketStatus.OPEN
+        mock_ticket.assignee = None
+
+        mock_client = Mock()
+        mock_client.search_tickets.return_value = [mock_ticket]
+
+        with patch("orchestrator_service.api.get_gtasks_ticket_client", return_value=mock_client):
+            response = app_client.get("/gtasks/tickets?query=important")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data["tickets"]) == 1
+            assert data["tickets"][0]["title"] == "Important task"

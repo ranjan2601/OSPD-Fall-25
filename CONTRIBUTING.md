@@ -75,13 +75,16 @@ The repository is organized as a `uv` workspace containing multiple layers of co
 
 **ticket_impl**: Jira ticket system implementation.
 - Concrete Jira integration using Jira REST API
-- Supports OAuth 2.0 authentication
-- Implements full ticket lifecycle management
+- Supports OAuth 2.0 authentication with token storage
+- Implements full ticket lifecycle management with priority support
+- User account ID lookup for reporter and assignee fields
+- Status filtering and search capabilities
 
 **gtask_client_impl**: Google Tasks implementation.
 - Integrates with Google Tasks API
-- OAuth 2.0 authentication
-- Task creation and status management
+- OAuth 2.0 authentication with service account support
+- Task creation and status management with string IDs
+- Significantly faster than Jira (1-2s vs 30-60s)
 
 #### Orchestration Layer
 
@@ -89,6 +92,9 @@ The repository is organized as a `uv` workspace containing multiple layers of co
 - Coordinates message flow between chat platforms and AI services
 - Maintains conversation history per channel (last 10 exchanges)
 - Routes ticket commands to appropriate systems (JIRA: or GTASKS: prefixes)
+- Supports title-based ticket updates with case-insensitive partial matching
+- Extracts and displays priority from description prefix
+- Handles both UUID and string IDs for Jira and GTasks compatibility
 - Tracks telemetry metrics (latency, success rates)
 - Provides factory functions for Discord and Slack orchestrators
 

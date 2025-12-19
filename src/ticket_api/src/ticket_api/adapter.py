@@ -11,14 +11,17 @@ Architecture:
 """
 
 import asyncio
+import re
 from dataclasses import dataclass
 from uuid import UUID
 
+from tickets_api import Ticket, TicketInterface
+from tickets_api import TicketStatus as SharedTicketStatus
+
 from .interface import TicketServiceAPI
 from .models import Ticket as InternalTicket
+from .models import TicketPriority as InternalTicketPriority
 from .models import TicketStatus as InternalTicketStatus
-from .shared_interface import Ticket, TicketInterface
-from .shared_interface import TicketStatus as SharedTicketStatus
 
 
 @dataclass(frozen=True)
@@ -117,10 +120,16 @@ class StandardizedTicketAdapter(TicketInterface):
             InternalTicketStatus.CLOSED: SharedTicketStatus.CLOSED,
         }
 
+        # Add priority prefix to description so orchestrator can extract and display it
+        description = internal_ticket.description
+        if internal_ticket.priority:
+            priority_value = internal_ticket.priority.value.upper()
+            description = f"[PRIORITY: {priority_value}] {description}"
+
         return SimpleTicket(
             _id=str(internal_ticket.id),
             _title=internal_ticket.title,
-            _description=internal_ticket.description,
+            _description=description,
             _status=status_map[internal_ticket.status],
             _assignee=internal_ticket.assignee,
         )
@@ -166,12 +175,29 @@ class StandardizedTicketAdapter(TicketInterface):
             Exception: If ticket creation fails
 
         """
+        # Parse priority from description if present (e.g., "[PRIORITY: HIGH] My desc")
+        # This allows priority support without modifying the standardized interface signature.
+        priority = InternalTicketPriority.MEDIUM
+        clean_description = description
+
+        # Regex to find [PRIORITY: VALUE] at start of description
+        match = re.match(r"^\[PRIORITY: (LOW|MEDIUM|HIGH|CRITICAL)\]\s*", description)
+        if match:
+            priority_str = match.group(1).lower()
+            try:
+                priority = InternalTicketPriority(priority_str)
+                clean_description = description[match.end() :]
+            except ValueError:
+                # If invalid priority value, keep default
+                pass
+
         # Run the async method synchronously
         internal_ticket = asyncio.run(
             self._internal.create_ticket(
                 title=title,
-                description=description,
+                description=clean_description,
                 reporter=self._reporter,
+                priority=priority,
                 assignee=assignee,
             ),
         )
@@ -218,12 +244,6 @@ class StandardizedTicketAdapter(TicketInterface):
 
         Raises:
             Exception: If search operation fails
-
-        Note:
-            The query parameter is implemented using client-side filtering
-            since our internal API doesn't have a direct text search parameter.
-            For production use, this could be optimized with a dedicated
-            search endpoint.
 
         """
         # Convert shared status to internal status if provided

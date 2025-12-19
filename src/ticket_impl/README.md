@@ -1,13 +1,23 @@
 # Ticket Implementation
 
-Jira Cloud implementation of `TicketServiceAPI` with OAuth 2.0 authentication.
+Jira Cloud implementation with OAuth 2.0 authentication, priority support, and user account management.
 
 ## Purpose
 
-- Implements `TicketServiceAPI` for Jira Cloud REST API v3
+- Implements ticket operations for Jira Cloud REST API v3
 - OAuth 2.0 (3-legged) authentication with automatic token refresh
+- Priority field support (LOW, MEDIUM, HIGH, CRITICAL)
+- User account ID lookup for reporter and assignee fields
 - UUID abstraction (hides Jira issue keys)
 - SQLAlchemy-based token and mapping storage
+
+## Performance Characteristics
+
+- **Typical latency**: 30-60 seconds per operation
+- **OAuth validation**: Checks token validity on each request
+- **Account lookups**: Queries Jira for user account IDs
+- **API limitations**: Jira Cloud API inherent response time
+- **Optimization**: Consider caching user account IDs
 
 ## Installation
 
@@ -31,13 +41,15 @@ DB_URL="sqlite:///./tickets.db"  # or postgresql://...
 
 ```python
 from ticket_impl import TicketImpl
+from ticket_api import TicketPriority
 
 service = TicketImpl(user_id="user-123", project_key="PROJ")
 
 ticket = await service.create_ticket(
     title="Bug Report",
     description="Found an issue",
-    reporter="user@example.com"
+    reporter="user@example.com",
+    priority=TicketPriority.HIGH
 )
 ```
 

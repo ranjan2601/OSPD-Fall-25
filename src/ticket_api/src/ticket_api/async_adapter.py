@@ -4,14 +4,17 @@ This module provides an async compatibility layer for use in async contexts
 like FastAPI endpoints, avoiding nested event loop errors from asyncio.run().
 """
 
+import re
 from typing import Any
 from uuid import UUID
 
+from tickets_api import Ticket
+from tickets_api import TicketStatus as SharedTicketStatus
+
 from .adapter import SimpleTicket
 from .interface import TicketServiceAPI
+from .models import TicketPriority as InternalTicketPriority
 from .models import TicketStatus as InternalTicketStatus
-from .shared_interface import Ticket
-from .shared_interface import TicketStatus as SharedTicketStatus
 
 
 class AsyncStandardizedTicketAdapter:
@@ -67,10 +70,16 @@ class AsyncStandardizedTicketAdapter:
             InternalTicketStatus.CLOSED: SharedTicketStatus.CLOSED,
         }
 
+        # Add priority prefix to description so orchestrator can extract and display it
+        description = internal_ticket.description
+        if internal_ticket.priority:
+            priority_value = internal_ticket.priority.value.upper()
+            description = f"[PRIORITY: {priority_value}] {description}"
+
         return SimpleTicket(
             _id=str(internal_ticket.id),
             _title=internal_ticket.title,
-            _description=internal_ticket.description,
+            _description=description,
             _status=status_map[internal_ticket.status],
             _assignee=internal_ticket.assignee,
         )
@@ -116,10 +125,24 @@ class AsyncStandardizedTicketAdapter:
             Exception: If ticket creation fails
 
         """
+        # Parse priority from description if present
+        priority = InternalTicketPriority.MEDIUM
+        clean_description = description
+
+        match = re.match(r"^\[PRIORITY: (LOW|MEDIUM|HIGH|CRITICAL)\]\s*", description)
+        if match:
+            priority_str = match.group(1).lower()
+            try:
+                priority = InternalTicketPriority(priority_str)
+                clean_description = description[match.end() :]
+            except ValueError:
+                pass
+
         internal_ticket = await self._internal.create_ticket(
             title=title,
-            description=description,
+            description=clean_description,
             reporter=self._reporter,
+            priority=priority,
             assignee=assignee,
         )
         return self._to_simple(internal_ticket)

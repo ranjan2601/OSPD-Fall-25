@@ -87,11 +87,115 @@ jobs:
       - store_artifacts:
           path: test-results/unit
 
-  # Job 4: CircleCI Integration Tests (All Tests Except Local Credentials)
+  # Job 4: Integration Tests (Without Mocks - Uses Real API Credentials)
+  integration_test_with_real_apis:
+    docker:
+      - image: cimg/python:3.11
+    # Environment variables from the 'ai-chat-orchestrator' context will be available here
+    steps:
+      - attach_workspace:
+          at: . # Attach the workspace persisted from 'build'
+      - run:
+          name: "Verify Required Environment Variables"
+          command: |
+            echo "Checking for required environment variables..."
+            missing_vars=""
+            
+            # Check AI credentials
+            [ -z "$GEMINI_API_KEY" ] && missing_vars="$missing_vars GEMINI_API_KEY"
+            
+            # Check Jira credentials
+            [ -z "$JIRA_CLOUD_ID" ] && missing_vars="$missing_vars JIRA_CLOUD_ID"
+            [ -z "$JIRA_PROJECT_KEY" ] && missing_vars="$missing_vars JIRA_PROJECT_KEY"
+            [ -z "$OAUTH_CLIENT_ID" ] && missing_vars="$missing_vars OAUTH_CLIENT_ID"
+            [ -z "$OAUTH_CLIENT_SECRET" ] && missing_vars="$missing_vars OAUTH_CLIENT_SECRET"
+            
+            # Check Slack credentials (optional)
+            [ -z "$SLACK_BOT_TOKEN" ] && echo "WARNING: SLACK_BOT_TOKEN not set"
+            
+            if [ -n "$missing_vars" ]; then
+              echo "ERROR: Missing required environment variables:$missing_vars"
+              echo "Please configure these in CircleCI Project Settings > Environment Variables"
+              echo "Or add them to the 'ai-chat-orchestrator' context"
+              exit 1
+            else
+              echo "✓ All required environment variables are present"
+            fi
+      - run:
+          name: "Setup Database for Tests"
+          command: |
+            source .venv/bin/activate
+            mkdir -p test-results/integration
+            # Create test database directory
+            mkdir -p .test_db
+            export DB_URL="sqlite:///.test_db/circleci_tokens.db"
+      - run:
+          name: "Execute Integration Tests (Real API Calls)"
+          command: |
+            source .venv/bin/activate
+            # Run integration tests from tests/integration/ with real API calls
+            # These tests verify component interactions with actual external services
+            # Note: E2E tests are excluded as they require a running service
+            pytest tests/integration/ -v \
+                   --junitxml=test-results/integration/junit.xml \
+                   --tb=short \
+                   --no-cov
+      - store_test_results:
+          path: test-results/integration
+      - store_artifacts:
+          path: test-results/integration
+
+  # Job 5: E2E Tests Against Deployed Service
+  e2e_test_deployed:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - attach_workspace:
+          at: . # Attach the workspace persisted from 'build'
+      - run:
+          name: "Activate Venv and Create Test Results Directory"
+          command: |
+            source .venv/bin/activate
+            mkdir -p test-results/e2e
+      - run:
+          name: "Verify Required Environment Variables"
+          command: |
+            # Check if required environment variables are set
+            missing_vars=""
+            
+            # Check AI service credentials
+            [ -z "$GEMINI_API_KEY" ] && missing_vars="$missing_vars GEMINI_API_KEY"
+            
+            # Check deployed service URL
+            [ -z "$ORCHESTRATOR_SERVICE_URL" ] && missing_vars="$missing_vars ORCHESTRATOR_SERVICE_URL"
+            
+            if [ -n "$missing_vars" ]; then
+              echo "ERROR: Missing required environment variables:$missing_vars"
+              echo "Please add these to the 'ai-chat-orchestrator' context"
+              exit 1
+            else
+              echo "✓ All required environment variables are present"
+              echo "Testing against: $ORCHESTRATOR_SERVICE_URL"
+            fi
+      - run:
+          name: "Execute E2E Tests Against Deployed Service"
+          command: |
+            source .venv/bin/activate
+            # Run E2E tests against deployed GCP Cloud Run service
+            # These tests validate the full system end-to-end
+            pytest tests/e2e/ -v \
+                   --junitxml=test-results/e2e/junit.xml \
+                   --tb=short \
+                   --no-cov
+      - store_test_results:
+          path: test-results/e2e
+      - store_artifacts:
+          path: test-results/e2e
+
+  # Job 6: CircleCI Tests (Unit + Integration Tests with Mocks)
   circleci_test:
     docker:
       - image: cimg/python:3.11
-    # Environment variables from the 'gmail-client' context will be available here
     steps:
       - attach_workspace:
           at: . # Attach the workspace persisted from 'build'
@@ -101,59 +205,25 @@ jobs:
             source .venv/bin/activate
             mkdir -p test-results/circleci # Separate directory for results
       - run:
-          name: "Execute All Tests Except Local Credentials"
+          name: "Execute All Tests Except Local Credentials (With Mocks)"
           command: |
             source .venv/bin/activate
-            # Run all tests from src/ and tests/ directories except those requiring local credentials
-            # This includes unit tests, integration tests, and e2e tests that work with env vars
-            # Coverage tracking enabled since this includes comprehensive unit tests
-            pytest src/ tests/ -m "not local_credentials" \
+            # Run all tests from src/ and tests/integration with mocks
+            # Excludes E2E tests (require running service) and local_credentials tests
+            pytest src/ tests/integration/ -m "not local_credentials" \
                    --junitxml=test-results/circleci/junit.xml -v \
-                   --cov=src --cov-report=term
+                   --cov=src --cov-report=term --cov-report=xml \
+                   --cov-fail-under=80
       - store_test_results:
           path: test-results/circleci
       - store_artifacts:
+          path: coverage.xml
+      - store_artifacts:
           path: test-results/circleci
 
-  # Job 5: Integration Tests with Real Credentials (Optional - Branch Restricted)
-  integration_test:
-    docker:
-      - image: cimg/python:3.11
-    # Environment variables from the 'gmail-client' context will be available here
-    steps:
-      - attach_workspace:
-          at: . # Attach the workspace persisted from 'build'
-      - run:
-          name: "Verify Environment Variables"
-          command: |
-            echo "Checking for required environment variables..."
-            if [ -z "$GMAIL_CLIENT_ID" ] || [ -z "$GMAIL_CLIENT_SECRET" ] || [ -z "$GMAIL_REFRESH_TOKEN" ]; then
-              echo "WARNING: Missing Gmail environment variables. Integration tests may be skipped."
-              echo "Required: GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN"
-            else
-              echo "All required environment variables are present."
-            fi
-      - run:
-          name: "Activate Venv and Create Test Results Directory"
-          command: |
-            source .venv/bin/activate
-            mkdir -p test-results/integration # Separate directory for results
-      - run:
-          name: "Execute Integration Test Suite with Real API Calls"
-          command: |
-            source .venv/bin/activate
-            # Run integration tests that require real Gmail API connectivity
-            # These will use environment variables for authentication
-            # Note: No coverage tracking for integration tests - they test component interactions
-            pytest -m "integration and not local_credentials" \
-                   --junitxml=test-results/integration/junit.xml -v \
-                   --no-cov
-      - store_test_results:
-          path: test-results/integration
-      - store_artifacts:
-          path: test-results/integration
 
-  # Job 6: Report Summary
+
+  # Job 7: Report Summary
   report_summary:
     docker:
       - image: cimg/base:stable # Use a basic image for reporting
@@ -192,6 +262,15 @@ jobs:
               echo "Integration test results file found."
             else
               echo "Integration test results file not found."
+            fi
+      - run:
+          name: "Summarize E2E Test Results"
+          command: |
+            echo "--- E2E Test Summary ---"
+            if [ -f test-results/e2e/junit.xml ]; then
+              echo "E2E test results file found."
+            else
+              echo "E2E test results file not found."
             fi
       - run:
           name: "Display Coverage Info"
@@ -250,12 +329,36 @@ workflows:
                 - main
                 - develop
                 - kamen-requierd-fixes
+      
+      - integration_test_with_real_apis:
+          requires:
+            - circleci_test # Run after mock tests pass
+          context: ai-chat-orchestrator # Context with real API credentials
+          filters:
+            branches:
+              ignore:
+                - main
+                - develop
+                - kamen-requierd-fixes
+
+      - e2e_test_deployed:
+          requires:
+            - integration_test_with_real_apis # Run after integration tests pass
+          context: ai-chat-orchestrator # Context with deployed service URL and credentials
+          filters:
+            branches:
+              ignore:
+                - main
+                - develop
+                - kamen-requierd-fixes
 
       # Optional: Report summary after core tests
       - report_summary:
           requires:
             - unit_test
             - circleci_test
+            - integration_test_with_real_apis
+            - e2e_test_deployed
           filters:
             branches:
               ignore:
@@ -304,10 +407,21 @@ workflows:
                 - develop
                 - kamen-requierd-fixes
 
-      - integration_test:
+      - integration_test_with_real_apis:
           requires:
-            - circleci_test # Run after CircleCI tests pass
-          context: gmail-client # Context containing Gmail API credentials
+            - circleci_test # Run after mock tests pass
+          context: ai-chat-orchestrator # Context with real API credentials
+          filters:
+            branches:
+              only:
+                - main
+                - develop
+                - kamen-requierd-fixes
+
+      - e2e_test_deployed:
+          requires:
+            - integration_test_with_real_apis # Run after integration tests pass
+          context: ai-chat-orchestrator # Context with deployed service URL and credentials
           filters:
             branches:
               only:
@@ -319,7 +433,8 @@ workflows:
           requires:
             - unit_test
             - circleci_test
-            - integration_test
+            - integration_test_with_real_apis
+            - e2e_test_deployed
           filters:
             branches:
               only:

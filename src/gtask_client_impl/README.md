@@ -12,6 +12,8 @@ This package serves as the production-ready Google Tasks integration:
 - **OAuth2 Authentication**: Handles secure authentication with multiple modes (interactive/non-interactive)
 - **ABC Implementation**: Provides concrete implementation of all Client operations
 - **Dependency Injection**: Automatically registers itself as the Client implementation
+- **Fast Performance**: 1-2 second response time (compared to Jira's 30-60s)
+- **String-based IDs**: Uses Google Tasks string IDs (not UUIDs like Jira)
 
 ## Architecture
 

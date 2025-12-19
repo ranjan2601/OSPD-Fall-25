@@ -5,8 +5,8 @@ from uuid import UUID, uuid4
 
 from ticket_api.async_adapter import AsyncStandardizedTicketAdapter
 from ticket_api.adapter import SimpleTicket
-from ticket_api.models import TicketStatus as InternalTicketStatus
-from ticket_api.shared_interface import TicketStatus as SharedTicketStatus
+from ticket_api.models import TicketStatus as InternalTicketStatus, TicketPriority
+from tickets_api import TicketStatus as SharedTicketStatus
 from typing import Any
 
 
@@ -19,12 +19,14 @@ class MockInternalTicket:
         title: str,
         description: str,
         status: InternalTicketStatus,
+        priority: TicketPriority = TicketPriority.MEDIUM,
         assignee: str | None = None,
     ) -> None:
         self.id = id
         self.title = title
         self.description = description
         self.status = status
+        self.priority = priority
         self.assignee = assignee
 
 
@@ -39,6 +41,7 @@ class MockTicketServiceAPI:
         title: str,
         description: str,
         reporter: str,
+        priority: TicketPriority = TicketPriority.MEDIUM,
         assignee: str | None = None,
     ) -> MockInternalTicket:
         """Create a new ticket."""
@@ -120,7 +123,8 @@ async def test_create_ticket(adapter: Any) -> None:
 
     assert isinstance(ticket, SimpleTicket)
     assert ticket.title == "Test Bug"
-    assert ticket.description == "This is a test bug"
+    # Priority prefix is added to description
+    assert ticket.description == "[PRIORITY: MEDIUM] This is a test bug"
     assert ticket.status == SharedTicketStatus.OPEN
     assert ticket.assignee == "dev@example.com"
     assert ticket.id  # Should have a UUID string
@@ -153,7 +157,8 @@ async def test_get_ticket_found(adapter: Any) -> None:
     assert fetched is not None
     assert fetched.id == created.id
     assert fetched.title == "Test Bug"
-    assert fetched.description == "Test description"
+    # Priority prefix is added to description
+    assert fetched.description == "[PRIORITY: MEDIUM] Test description"
 
 
 @pytest.mark.asyncio
@@ -279,7 +284,8 @@ async def test_update_ticket_title(adapter: Any) -> None:
     updated = await adapter.update_ticket(ticket.id, title="New Title")
 
     assert updated.title == "New Title"
-    assert updated.description == "Description"  # Unchanged
+    # Priority prefix is always added
+    assert updated.description == "[PRIORITY: MEDIUM] Description"  # Unchanged except for prefix
 
 
 @pytest.mark.asyncio
@@ -289,7 +295,8 @@ async def test_update_ticket_description(adapter: Any) -> None:
 
     updated = await adapter.update_ticket(ticket.id, description="New Description")
 
-    assert updated.description == "New Description"
+    # Priority prefix is always added
+    assert updated.description == "[PRIORITY: MEDIUM] New Description"
     assert updated.title == "Title"  # Unchanged
 
 
@@ -317,7 +324,8 @@ async def test_update_ticket_multiple_fields(adapter: Any) -> None:
     )
 
     assert updated.title == "New Title"
-    assert updated.description == "New Description"
+    # Priority prefix is always added
+    assert updated.description == "[PRIORITY: MEDIUM] New Description"
     assert updated.status == SharedTicketStatus.CLOSED
     assert updated.assignee == "dev@example.com"
 

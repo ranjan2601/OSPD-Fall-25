@@ -9,6 +9,8 @@
 
 This repository demonstrates a professional-grade microservices architecture for building AI-powered chat systems. The project emphasizes component-based design, dependency injection, and comprehensive testing to create a maintainable and extensible platform that integrates Discord, Slack, Jira, and Google Tasks with AI capabilities.
 
+Key features include natural language ticket creation with priority support, title-based ticket updates, conversation history management, and intelligent command routing between Jira and Google Tasks systems.
+
 ## Live Demo
 
 **Deployed Service**: https://ai-chat-orchestrator-qvzc7dnvtq-uc.a.run.app
@@ -30,14 +32,18 @@ This repository demonstrates a professional-grade microservices architecture for
 - `GET /slack/metrics` - Get Slack orchestrator telemetry
 
 **Jira Integration:**
-- `POST /jira/tickets` - Create Jira tickets
-- `GET /jira/tickets` - List Jira tickets
+- `POST /jira/tickets` - Create Jira tickets with optional priority
+- `GET /jira/tickets` - List Jira tickets with status filtering
 - `GET /jira/tickets/{ticket_id}` - Get specific ticket
+- `PUT /jira/tickets/{ticket_id}` - Update ticket by ID or title
+- `DELETE /jira/tickets/{ticket_id}` - Close ticket by ID or title
 
 **Google Tasks Integration:**
 - `POST /gtasks/tickets` - Create Google Tasks
-- `GET /gtasks/tickets` - List Google Tasks
+- `GET /gtasks/tickets` - List Google Tasks with status filtering
 - `GET /gtasks/tickets/{task_id}` - Get specific task
+- `PUT /gtasks/tickets/{task_id}` - Update task by ID or title
+- `DELETE /gtasks/tickets/{task_id}` - Complete task by ID or title
 
 **Health & Monitoring:**
 - `GET /health` - Service health check
@@ -48,6 +54,36 @@ This repository demonstrates a professional-grade microservices architecture for
 This project is built on the principle of "programming integrated over time." The architecture is designed to combat complexity and ensure the system is maintainable and evolvable.
 
 - **Component-Based Design**: The system is broken down into self-contained components. Each component has a single responsibility and can be reused across different projects with minimal effort.
+
+## AI Orchestrator Features
+
+The AI chat orchestrator provides intelligent natural language processing for ticket and task management:
+
+**Natural Language Commands:**
+- Create tickets with priority: "Create a ticket to fix login bug with high priority"
+- Update by title: "Update ticket 'Fix login bug' to change status to in progress"
+- Search by status: "Show me all open tickets" or "List my completed tasks"
+- Close by title: "Close the ticket about login bug"
+
+**Priority Support:**
+- Set priority when creating tickets: LOW, MEDIUM, HIGH, CRITICAL
+- Priority displayed with all ticket listings
+- Jira priority field automatically mapped
+
+**Title-Based Operations:**
+- Update and close tickets using natural titles instead of UUIDs
+- Case-insensitive partial matching for convenience
+- Works with both Jira tickets and Google Tasks
+
+**Multi-System Support:**
+- Intelligent routing between Jira and Google Tasks
+- System prompt automatically configures available commands
+- Performance optimized: GTasks 1-2s, Jira 30-60s due to OAuth
+
+**Conversation History:**
+- Maintains last 10 exchanges per channel for context
+- Enables coherent multi-turn conversations
+- Per-channel isolation
 - **Interface-Implementation Separation**: Every piece of functionality is defined by an abstract contract implemented as an ABC (the "what") and fulfilled by a concrete implementation (the "how"). This decouples business logic from specific technologies.
 - **Dependency Injection**: Implementations are injected into abstract contracts at runtime. Consumers of the API only depend on stable interfaces, not volatile implementation details.
 

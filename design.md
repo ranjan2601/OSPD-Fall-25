@@ -11,7 +11,7 @@ The platform consists of multiple integrated layers:
 1. **AI Client Layer** - Abstract AI interface with Gemini implementation and HTTP service
 2. **Chat Client Layer** - Abstract chat interface with Discord and Slack implementations
 3. **Ticket Management Layer** - Abstract ticket interface with Jira and Google Tasks implementations
-4. **Orchestration Layer** - Coordinates AI, chat, and ticket services with conversation management
+4. **Orchestration Layer** - Coordinates AI, chat, and ticket services with conversation management, title-based operations, and priority handling
 5. **Service Layer** - Unified FastAPI service exposing all functionality via REST API
 
 ### Problem Statement
@@ -24,8 +24,11 @@ Building a multi-platform chat integration system with AI capabilities presents 
 - **Scalability**: Need to support multiple concurrent users and conversations
 - **State Management**: Conversation history must be maintained per channel/user
 - **Error Resilience**: System must gracefully handle service failures
+- **Priority Handling**: Shared ticket interface lacks priority field, requiring workaround
+- **User Experience**: UUID-based operations difficult, need title-based alternatives
+- **ID Compatibility**: Jira uses UUIDs, Google Tasks uses string IDs
 
-**Solution**: Apply component-based architecture with clear interface boundaries, dependency injection for flexibility, and orchestration layer for coordination.
+**Solution**: Apply component-based architecture with clear interface boundaries, dependency injection for flexibility, orchestration layer for coordination, priority prefix workaround, title-based lookup with partial matching, and polymorphic ID handling.
 
 ---
 
@@ -257,6 +260,15 @@ Abstract ticket/task operations across Jira and Google Tasks with standardized i
   - Enables cross-system queries
 - **Tradeoff**: Loses provider-specific status granularity
 
+**4. Priority Handling via Description Prefix**
+- **Decision**: Prepend priority to description field as `[PRIORITY: VALUE]`
+- **Rationale**:
+  - Shared ticket interface lacks priority parameter
+  - Adapter layer adds prefix when converting internal to shared tickets
+  - Orchestrator extracts with regex and displays separately
+  - Maintains backward compatibility
+- **Tradeoff**: Not type-safe, relies on string parsing, couples adapter and orchestrator
+
 ---
 
 ## Layer 4: AI Chat Orchestrator
@@ -271,10 +283,12 @@ Coordinate message flow between chat platforms, AI services, and ticket systems 
 2. Retrieve conversation history for context
 3. Send to AI with system prompt (including ticket commands if configured)
 4. Parse AI response for ticket commands (JIRA:, GTASKS:)
-5. Execute ticket commands if present
-6. Format response for chat platform
-7. Send response and update conversation history
-8. Track telemetry metrics
+5. Execute ticket commands if present (supports GET_TICKETS, SEARCH_TICKETS, CREATE_TICKET, UPDATE_TICKET, CLOSE_TICKET)
+6. Handle title-based updates via case-insensitive partial matching
+7. Extract and display priority from description prefix
+8. Format response for chat platform
+9. Send response and update conversation history
+10. Track telemetry metrics
 
 **Conversation History Management:**
 - Maintains last 10 message exchanges per channel
@@ -321,6 +335,23 @@ Coordinate message flow between chat platforms, AI services, and ticket systems 
   - Simpler state management
 - **Tradeoff**: Not horizontally scalable without shared state store
 
+**6. Title-Based Ticket Operations**
+- **Decision**: Support `title=` prefix in UPDATE_TICKET and CLOSE_TICKET commands
+- **Rationale**:
+  - UUIDs difficult for users to remember and type
+  - Natural language references use titles
+  - Case-insensitive partial matching provides flexibility
+- **Implementation**: Search tickets by title match before ID lookup
+- **Tradeoff**: Ambiguous if multiple tickets have similar titles (returns first match)
+
+**7. Polymorphic ID Handling**
+- **Decision**: Accept both UUID and string IDs in orchestrator
+- **Rationale**:
+  - Jira uses UUID format
+  - Google Tasks uses arbitrary string IDs
+  - Try UUID parsing first, fallback to string
+- **Tradeoff**: Less type safety, potential for ID confusion across systems
+
 **4. Automatic Formatting Cleanup**
 - **Decision**: Remove markdown bold syntax from AI responses
 - **Rationale**:
@@ -336,6 +367,17 @@ Coordinate message flow between chat platforms, AI services, and ticket systems 
   - Separate metrics for Discord vs Slack
   - Debugging and performance analysis
 - **Metrics Tracked**: Total requests, success/failure counts, AI time, chat time, total latency
+
+**8. Performance Characteristics**
+- **Jira Latency**: 30-60 seconds per operation
+  - OAuth token validation on each request
+  - User account ID lookup for reporter/assignee
+  - Jira Cloud API inherent latency
+  - Potential optimization: cache user account IDs
+- **Google Tasks Latency**: 1-2 seconds per operation
+  - Simpler authentication model
+  - No user account lookups
+  - Faster API response times
 
 ---
 

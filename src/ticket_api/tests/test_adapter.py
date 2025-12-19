@@ -16,7 +16,7 @@ from ticket_api.adapter import SimpleTicket, StandardizedTicketAdapter
 from ticket_api.models import Ticket as InternalTicket
 from ticket_api.models import TicketPriority
 from ticket_api.models import TicketStatus as InternalTicketStatus
-from ticket_api.shared_interface import TicketStatus as SharedTicketStatus
+from tickets_api import TicketStatus as SharedTicketStatus
 
 
 class TestSimpleTicket:
@@ -137,7 +137,11 @@ class TestStandardizedTicketAdapter:
 
         assert simple.id == str(sample_internal_ticket.id)
         assert simple.title == sample_internal_ticket.title
-        assert simple.description == sample_internal_ticket.description
+        # Priority is prepended to description
+        assert (
+            simple.description
+            == f"[PRIORITY: {sample_internal_ticket.priority.value.upper()}] {sample_internal_ticket.description}"
+        )
         assert simple.status == SharedTicketStatus.OPEN
         assert simple.assignee == sample_internal_ticket.assignee
 
@@ -219,13 +223,18 @@ class TestStandardizedTicketAdapter:
             title="New Ticket",
             description="New Description",
             reporter="test-reporter",
+            priority=TicketPriority.MEDIUM,
             assignee="assignee@example.com",
         )  # type: ignore[attr-defined]
 
         # Verify result is a SimpleTicket
         assert isinstance(result, SimpleTicket)
         assert result.title == sample_internal_ticket.title
-        assert result.description == sample_internal_ticket.description
+        # Description includes priority prefix
+        assert (
+            result.description
+            == f"[PRIORITY: {sample_internal_ticket.priority.value.upper()}] {sample_internal_ticket.description}"
+        )
 
     def test_create_ticket_no_assignee(
         self,
@@ -244,6 +253,7 @@ class TestStandardizedTicketAdapter:
             title="Unassigned Ticket",
             description="No assignee",
             reporter="test-reporter",
+            priority=TicketPriority.MEDIUM,
             assignee=None,
         )  # type: ignore[attr-defined]
 

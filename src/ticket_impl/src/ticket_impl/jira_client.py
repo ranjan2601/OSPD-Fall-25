@@ -72,6 +72,7 @@ async def create_issue(
     description: str | None,
     assignee_account_id: str | None,
     reporter_account_id: str | None,
+    extra_fields: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create a new issue in the given project."""
     fields: dict[str, Any] = {
@@ -86,6 +87,10 @@ async def create_issue(
         fields["assignee"] = {"id": assignee_account_id}
     if reporter_account_id:
         fields["reporter"] = {"id": reporter_account_id}
+    
+    # Merge extra fields (e.g., priority) to avoid additional API calls
+    if extra_fields:
+        fields.update(extra_fields)
 
     payload = {"fields": fields}
     async with httpx.AsyncClient(timeout=30.0) as client:

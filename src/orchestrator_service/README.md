@@ -4,7 +4,9 @@ FastAPI service providing unified HTTP API for AI-powered chat orchestration acr
 
 ## Overview
 
-The Orchestrator Service is the main HTTP API that brings together all components of the AI-Chat integration platform. It exposes REST endpoints for processing messages, managing channels, creating tickets, and retrieving metrics across multiple platforms.
+The Orchestrator Service is the main HTTP API that brings together all components of the AI-Chat integration platform. It exposes REST endpoints for processing messages, managing channels, creating tickets with priority support, updating tickets by title, and retrieving metrics across multiple platforms.
+
+Key features include natural language processing, title-based ticket operations, priority handling, and intelligent routing between Jira and Google Tasks.
 
 ## Architecture
 
@@ -191,14 +193,15 @@ Get Slack orchestrator telemetry metrics.
 
 #### POST /jira/tickets
 
-Create a new Jira ticket.
+Create a new Jira ticket with optional priority.
 
 **Request:**
 ```json
 {
   "title": "Fix login bug",
   "description": "Users cannot log in with SSO",
-  "assignee": "user@example.com"
+  "assignee": "user@example.com",
+  "priority": "HIGH"
 }
 ```
 
@@ -207,11 +210,13 @@ Create a new Jira ticket.
 {
   "id": "12345678-1234-5678-1234-567812345678",
   "title": "Fix login bug",
-  "description": "Users cannot log in with SSO",
+  "description": "[PRIORITY: HIGH] Users cannot log in with SSO",
   "status": "open",
   "assignee": "user@example.com"
 }
 ```
+
+**Priority Values:** LOW, MEDIUM, HIGH, CRITICAL
 
 #### GET /jira/tickets/{ticket_id}
 
@@ -243,13 +248,35 @@ Search Jira tickets with optional filters.
     {
       "id": "12345678-1234-5678-1234-567812345678",
       "title": "Fix login bug",
-      "description": "Users cannot log in with SSO",
+      "description": "[PRIORITY: HIGH] Users cannot log in with SSO",
       "status": "open",
       "assignee": "user@example.com"
     }
   ]
 }
 ```
+
+**Note:** Priority is displayed separately when extracted from description prefix.
+
+#### PUT /jira/tickets/{ticket_id}
+
+Update a Jira ticket by ID or title.
+
+**Request:**
+```json
+{
+  "status": "IN_PROGRESS",
+  "assignee": "newuser@example.com"
+}
+```
+
+**Title-based update:** Use `title=Fix login bug` instead of UUID in path.
+
+#### DELETE /jira/tickets/{ticket_id}
+
+Close a Jira ticket by ID or title.
+
+**Title-based close:** Use `title=Fix login bug` instead of UUID in path.
 
 ### Google Tasks Integration
 
@@ -287,6 +314,38 @@ Search Google Tasks tickets with optional filters.
 **Query Parameters:**
 - `query`: Search query string
 - `status`: Filter by status (open, in_progress, closed)
+
+#### PUT /gtasks/tickets/{task_id}
+
+Update a Google Tasks ticket by ID or title.
+
+**Request:**
+```json
+{
+  "status": "COMPLETED"
+}
+```
+
+**Title-based update:** Use `title=Review pull request` instead of task ID.
+
+#### DELETE /gtasks/tickets/{task_id}
+
+Complete a Google Tasks ticket by ID or title.
+
+**Title-based complete:** Use `title=Review pull request` instead of task ID.
+
+## Performance Characteristics
+
+### Response Times
+- **GTasks operations**: 1-2 seconds
+- **Jira operations**: 30-60 seconds (OAuth validation, user account lookups)
+- **AI processing**: 1-3 seconds
+- **Discord/Slack messaging**: < 1 second
+
+### Optimization Opportunities
+- Cache user account IDs to reduce Jira latency
+- Use Redis for conversation history across instances
+- Implement connection pooling for database queries
 
 ## Running the Service
 

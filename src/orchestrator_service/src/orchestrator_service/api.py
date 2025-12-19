@@ -12,7 +12,6 @@ from ai_client_api.credential import resolve_api_key
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from gemini_client_impl.client import GeminiClient
 from pydantic import BaseModel, Field
-from ticket_api.shared_interface import TicketStatus as JiraTicketStatus
 from tickets_client_impl import TicketsClient
 
 import discord_client_impl  # noqa: F401
@@ -432,7 +431,7 @@ async def search_jira_tickets(query: str | None = None, status: str | None = Non
     """Search Jira tickets."""
     try:
         client = get_jira_async_ticket_client()
-        ticket_status = JiraTicketStatus(status) if status else None
+        ticket_status = TicketStatus(status) if status else None
         tickets = await client.search_tickets(query=query, status=ticket_status)
         return TicketListResponse(
             tickets=[

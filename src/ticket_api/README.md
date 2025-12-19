@@ -1,14 +1,17 @@
 # Ticket API
 
-Abstract interface and data models for ticketing operations. This package defines the contract that all implementations must follow.
+Abstract interface and adapter layer for ticketing operations. This package provides adapters that convert internal rich ticket APIs (with priority support) to the shared standardized interface.
+
+Key feature: Priority handling via description prefix workaround for shared interface compatibility.
 
 ## Purpose
 
-- Defines `TicketServiceAPI` abstract base class
-- Provides domain models: `Ticket`, `Comment`
-- Declares enums: `TicketStatus`, `TicketPriority`
-- Custom exceptions: `ServiceError`, `TicketNotFoundError`
-- Zero external dependencies
+- Adapts internal ticket API (with priority field) to shared interface
+- Provides `StandardizedTicketAdapter` for sync operations
+- Provides `AsyncStandardizedTicketAdapter` for FastAPI endpoints
+- Priority handling: Prepends `[PRIORITY: VALUE]` to description
+- Supports both sync and async patterns
+- Minimal external dependencies
 
 ## Installation
 

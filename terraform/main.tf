@@ -232,7 +232,7 @@ resource "google_cloud_run_service" "orchestrator_service" {
       service_account_name = google_service_account.orchestrator_sa.email
 
       containers {
-        image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.ai_chat_repo.repository_id}/orchestrator-service:v3.2"
+        image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.ai_chat_repo.repository_id}/orchestrator-service:v3.15"
 
         # Secret environment variables
         env {

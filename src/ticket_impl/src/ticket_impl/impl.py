@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid5
@@ -147,8 +148,26 @@ class TicketImpl(TicketServiceAPI):
     ) -> Ticket:
         """Create a ticket and return its hydrated domain model."""
         try:
-            reporter_id = await jc.find_user_account_id(self.user_id, reporter) if reporter else None
-            assignee_id = await jc.find_user_account_id(self.user_id, assignee) if assignee else None
+            # Optimization: Run user lookups in parallel instead of sequentially
+            reporter_task = jc.find_user_account_id(self.user_id, reporter) if reporter else None
+            assignee_task = jc.find_user_account_id(self.user_id, assignee) if assignee else None
+
+            # Gather both user lookups concurrently
+            if reporter_task and assignee_task:
+                reporter_id, assignee_id = await asyncio.gather(reporter_task, assignee_task)
+            elif reporter_task:
+                reporter_id = await reporter_task
+                assignee_id = None
+            elif assignee_task:
+                reporter_id = None
+                assignee_id = await assignee_task
+            else:
+                reporter_id = assignee_id = None
+
+            # Optimization: Include priority in initial create to avoid extra API call
+            fields: dict[str, Any] = {}
+            if priority != TicketPriority.MEDIUM:
+                fields["priority"] = {"name": _priority_to_jira(priority)}
 
             created = await jc.create_issue(
                 user_id=self.user_id,
@@ -157,15 +176,19 @@ class TicketImpl(TicketServiceAPI):
                 description=description,
                 assignee_account_id=assignee_id,
                 reporter_account_id=reporter_id,
+                extra_fields=fields if fields else None,
             )
 
+            # Optimization: Use data from create response instead of fetching again
+            # Only fetch if create response doesn't have full details
             key = created["key"]
-            # update priority if needed
-            if priority != TicketPriority.MEDIUM:
-                await jc.update_issue_fields(self.user_id, key, {"priority": {"name": _priority_to_jira(priority)}})
-
-            data = await jc.get_issue(self.user_id, key)
-            return _jira_to_ticket(data, self.user_id)
+            if "fields" in created:
+                # Create response has full issue data, use it directly
+                return _jira_to_ticket(created, self.user_id)
+            else:
+                # Fall back to fetching full issue data
+                data = await jc.get_issue(self.user_id, key)
+                return _jira_to_ticket(data, self.user_id)
         except Exception as e:
             msg = f"Failed to create ticket: {e}"
             raise ServiceError(msg) from e
@@ -233,11 +256,11 @@ class TicketImpl(TicketServiceAPI):
     async def update_ticket(
         self,
         ticket_id: UUID,
-        _title: str | None = None,
-        _description: str | None = None,
+        title: str | None = None,
+        description: str | None = None,
         status: TicketStatus | None = None,
-        _priority: TicketPriority | None = None,
-        _assignee: str | None = None,
+        priority: TicketPriority | None = None,
+        assignee: str | None = None,
     ) -> Ticket:
         """Update fields and/or workflow state; return the refreshed ticket."""
         key = get_key_for_uuid(self.user_id, ticket_id) or str(ticket_id)
@@ -248,7 +271,7 @@ class TicketImpl(TicketServiceAPI):
                     TicketStatus.OPEN: {"Open", "To Do"},
                     TicketStatus.IN_PROGRESS: {"In Progress", "Doing"},
                     TicketStatus.RESOLVED: {"Done", "Resolved"},
-                    TicketStatus.CLOSED: {"Closed"},
+                    TicketStatus.CLOSED: {"Closed", "Done"},
                 }[status]
                 choice = next((t for t in transitions if t.get("name") in target), None)
                 if not choice:

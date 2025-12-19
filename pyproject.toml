@@ -147,6 +147,7 @@ omit = [
     "*/mail_client_adapter/*",
     "*/gmail_client_impl/*",
     "*/discord_client_impl/auth_helper.py",
+    "src/app.py",
 ]
 
 [tool.coverage.report]

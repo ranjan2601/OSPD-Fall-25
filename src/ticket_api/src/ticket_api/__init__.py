@@ -19,4 +19,4 @@ from .models import Comment as Comment
 from .models import Ticket as Ticket
 from .models import TicketPriority as TicketPriority
 from .models import TicketStatus as TicketStatus
-from .shared_interface import TicketInterface as TicketInterface
+from tickets_api import TicketInterface as TicketInterface

@@ -4,6 +4,7 @@ import logging
 import re
 import time
 from typing import Any
+from uuid import UUID
 
 from tickets_api import TicketStatus
 
@@ -55,8 +56,61 @@ class AIChatOrchestrator:
 You have access to multiple ticketing/task management systems: {system_list}.
 
 When users ask about tickets or tasks, determine which system they're referring to:
-- If they mention "Jira" or "tickets", use: JIRA:GET_TICKETS:limit=<number> or JIRA:SEARCH_TICKETS:status=<status> or JIRA:GET_TICKET:id=<id>
-- If they mention "Google Tasks", "tasks", or "to-dos", use: GTASKS:GET_TICKETS:limit=<number> or GTASKS:SEARCH_TICKETS:status=<status> or GTASKS:GET_TICKET:id=<id>
+- If they mention "Jira" or "tickets", use JIRA: prefix
+- If they mention "Google Tasks", "tasks", or "to-dos", use GTASKS: prefix
+
+AVAILABLE COMMANDS:
+
+JIRA COMMANDS:
+
+READ Operations:
+- JIRA:GET_TICKETS:limit=<number> - Get recent tickets (e.g., "Show me my 5 most recent tickets")
+- JIRA:SEARCH_TICKETS:status=<status> - Search by status (e.g., "Show me open tickets")
+- JIRA:GET_TICKET:id=<id> - Get specific ticket (e.g., "Show me ticket KAN-123")
+
+WRITE Operations:
+- JIRA:CREATE_TICKET:title=<title>|description=<desc>|priority=<priority> - Create new ticket
+- JIRA:UPDATE_TICKET:id=<id>|status=<status> - Update ticket status by ID (e.g., "Change ticket KAN-123 to in_progress")
+- JIRA:UPDATE_TICKET:title=<title>|status=<status> - Update ticket status by title (e.g., "Change status of Fix login bug to in_progress")
+- JIRA:CLOSE_TICKET:id=<id> - Close a ticket by ID (e.g., "Close ticket KAN-123")
+- JIRA:CLOSE_TICKET:title=<title> - Close a ticket by title (e.g., "Close Fix login bug")
+
+GTASKS COMMANDS:
+
+READ Operations:
+- GTASKS:GET_TICKETS:limit=<number> - Get recent tasks (e.g., "Show me my 5 most recent tasks")
+- GTASKS:SEARCH_TICKETS:status=<status> - Search tasks by status (e.g., "Show me open tasks")
+- GTASKS:GET_TICKET:id=<id> - Get specific task (e.g., "Show me task abc123")
+
+WRITE Operations:
+- GTASKS:CREATE_TICKET:title=<title>|description=<desc> - Create new task
+- GTASKS:UPDATE_TICKET:id=<id>|status=<status> - Update task status by ID
+- GTASKS:UPDATE_TICKET:title=<title>|status=<status> - Update task status by title
+- GTASKS:CLOSE_TICKET:id=<id> - Close a task by ID
+- GTASKS:CLOSE_TICKET:title=<title> - Close a task by title
+
+Valid statuses: open, in_progress, closed
+Valid priorities: low, medium, high, critical (default: medium if not specified)
+
+COMMAND FORMATTING RULES:
+- For CREATE_TICKET: Use pipe | to separate title, description, and optional priority
+  * Extract priority from natural language like "high priority", "set priority to critical", "priority: low"
+  * Always convert priority to lowercase (high, medium, low, critical)
+  * If no priority mentioned, omit the priority parameter (defaults to medium)
+- For UPDATE_TICKET: Use pipe | to separate identifier (id= or title=) and status
+  * Use id= when user provides exact ticket ID
+  * Use title= when user refers to ticket by name (e.g., "change status of Fix login bug")
+  * Title matching is case-insensitive and partial matches are allowed
+- Example: JIRA:CREATE_TICKET:title=Fix login bug|description=Users cannot log in|priority=high
+- Example: JIRA:CREATE_TICKET:title=Update docs|description=Add API docs (priority defaults to medium)
+- Example: JIRA:UPDATE_TICKET:id=KAN-123|status=in_progress
+- Example: JIRA:UPDATE_TICKET:title=Fix login bug|status=closed
+
+NATURAL LANGUAGE PARSING FOR CREATE_TICKET:
+- "Create a high priority ticket..." → priority=high
+- "Set the priority to Critical" → priority=critical  
+- "titled X with description Y" → extract title and description accurately
+- Long descriptions are allowed - capture the full text between quotes or after "description:"
 
 CRITICAL RULE FOR "SUMMARIZE" REQUESTS:
 - When user says "summarize them", "summarize it", or similar AFTER viewing tickets:
@@ -66,8 +120,11 @@ CRITICAL RULE FOR "SUMMARIZE" REQUESTS:
   * Provide a brief natural language summary (2-3 sentences highlighting key themes, statuses, priorities)
 - Only use ticket commands when user explicitly asks for NEW or DIFFERENT tickets
 
-After receiving data, provide a natural language summary or answer based on what the user asked.
-Valid statuses: open, in_progress, closed
+IMPORTANT: When executing a ticket command (GET_TICKETS, SEARCH_TICKETS, CREATE_TICKET, etc.):
+- Output ONLY the command itself
+- Do NOT include any additional text, explanations, or formatted data
+- The system will automatically fetch and format the data for you
+- Example: If user asks "show me my recent tickets", respond with ONLY: JIRA:GET_TICKETS:limit=5
 
 FORMATTING RULES for Slack/Discord:
 - Use simple, clean formatting
@@ -81,7 +138,7 @@ FORMATTING RULES for Slack/Discord:
 
   • Third point
 
-IMPORTANT: Always prefix commands with the system name (JIRA: or GTASKS:) to specify which system to query.
+IMPORTANT: Always prefix commands with the system name (JIRA: or GTASKS:) to specify which system to use.
 """
         else:
             self.system_prompt = system_prompt
@@ -276,7 +333,16 @@ IMPORTANT: Always prefix commands with the system name (JIRA: or GTASKS:) to spe
 
     def _is_ticket_request(self, response: str) -> bool:
         """Check if AI response contains a ticket function call."""
-        commands = ["GET_TICKETS:", "SEARCH_TICKETS:", "GET_TICKET:", "JIRA:", "GTASKS:"]
+        commands = [
+            "GET_TICKETS:",
+            "SEARCH_TICKETS:",
+            "GET_TICKET:",
+            "CREATE_TICKET:",
+            "UPDATE_TICKET:",
+            "CLOSE_TICKET:",
+            "JIRA:",
+            "GTASKS:",
+        ]
         return any(cmd in response for cmd in commands)
 
     def _handle_ticket_request(self, response: str) -> tuple[str | None, dict[str, Any] | None]:
@@ -333,17 +399,174 @@ IMPORTANT: Always prefix commands with the system name (JIRA: or GTASKS:) to spe
                     return formatted, metadata
 
             elif "GET_TICKET:id=" in response:
-                ticket_id = response.split("GET_TICKET:id=")[1].split()[0].strip()
-                ticket = client.get_ticket(ticket_id)
+                ticket_id_str = response.split("GET_TICKET:id=")[1].split()[0].strip()
+                try:
+                    ticket_id = UUID(ticket_id_str)
+                except ValueError:
+                    return f"Error: Invalid ticket ID format '{ticket_id_str}'. Expected UUID format.", None
+                ticket = client.get_ticket(str(ticket_id))
                 if ticket:
                     formatted = self._format_tickets([ticket])
-                    metadata = {"system": system_name, "count": 1, "type": "single", "id": ticket_id}
+                    metadata = {"system": system_name, "count": 1, "type": "single", "id": str(ticket_id)}
                     return formatted, metadata
+
+            elif "CREATE_TICKET:" in response:
+                # Parse: CREATE_TICKET:title=<title>|description=<desc>|priority=<priority>
+                parts = response.split("CREATE_TICKET:")[1].strip()
+                title = "Untitled"
+                description = "No description provided"
+                priority_text = ""
+
+                logger.info(f"CREATE_TICKET parsing - raw parts: {parts}")
+
+                # Split by pipe and parse each part
+                if "|" in parts:
+                    segments = parts.split("|")
+                    for segment in segments:
+                        segment = segment.strip()
+                        if segment.startswith("title="):
+                            title = segment.replace("title=", "", 1).strip()
+                        elif segment.startswith("description="):
+                            description = segment.replace("description=", "", 1).strip()
+                        elif segment.startswith("priority="):
+                            priority_val = segment.replace("priority=", "", 1).strip().lower()
+                            priority_text = f"[PRIORITY: {priority_val.upper()}] "
+                            logger.info(f"Priority detected: {priority_val} -> {priority_text}")
+
+                    # Prepend priority to description if specified
+                    if priority_text:
+                        description = f"{priority_text}{description}"
+                else:
+                    # Fallback: just title
+                    title = parts.replace("title=", "").strip()
+
+                logger.info(f"Final ticket params - title: {title}, description: {description[:100]}...")
+                ticket = client.create_ticket(title=title, description=description)
+                if ticket:
+                    result = f"✓ Ticket created successfully in {system_name}!\n\nID: {ticket.id}\nTitle: {ticket.title}\nStatus: {ticket.status.value if hasattr(ticket.status, 'value') else ticket.status}\nDescription: {ticket.description}"
+                    metadata = {"system": system_name, "type": "create", "id": str(ticket.id)}
+                    return result, metadata
+
+            elif "UPDATE_TICKET:" in response:
+                # Parse: UPDATE_TICKET:id=<id>|status=<status> OR UPDATE_TICKET:title=<title>|status=<status>
+                parts = response.split("UPDATE_TICKET:")[1].strip()
+                if "|" not in parts:
+                    return (
+                        "Error: UPDATE_TICKET requires format: id=<id>|status=<status> or title=<title>|status=<status>",
+                        None,
+                    )
+
+                identifier_part, status_part = parts.split("|", 1)
+                new_status = status_part.replace("status=", "").strip()
+
+                status_map = {
+                    "open": TicketStatus.OPEN,
+                    "in_progress": TicketStatus.IN_PROGRESS,
+                    "closed": TicketStatus.CLOSED,
+                }
+                ticket_status = status_map.get(new_status.lower())
+
+                if not ticket_status:
+                    return (
+                        f"Error: Invalid status '{new_status}'. Valid statuses: open, in_progress, closed",
+                        None,
+                    )
+
+                # Determine if using ID or title
+                ticket_id = None  # type: ignore[assignment]
+                if identifier_part.startswith("id="):
+                    # Using ID - handle both UUID (Jira) and string IDs (GTasks)
+                    ticket_id_str = identifier_part.replace("id=", "").strip()
+                    try:
+                        ticket_id = UUID(ticket_id_str)
+                    except ValueError:
+                        # Not a UUID, use as string (for GTasks)
+                        ticket_id = ticket_id_str  # type: ignore[assignment]
+                elif identifier_part.startswith("title="):
+                    # Using title - search for matching ticket
+                    search_title = identifier_part.replace("title=", "").strip().lower()
+                    tickets = client.search_tickets(query=None, status=None)
+                    tickets_list = list(tickets) if hasattr(tickets, "__iter__") else tickets
+
+                    # Find ticket with matching title (case-insensitive, partial match)
+                    matching_ticket = None
+                    for ticket in tickets_list:
+                        if search_title in ticket.title.lower():
+                            matching_ticket = ticket
+                            break
+
+                    if not matching_ticket:
+                        return (
+                            f"Error: No ticket found with title containing '{identifier_part.replace('title=', '').strip()}'",
+                            None,
+                        )
+
+                    # Handle both UUID and string IDs
+                    try:
+                        ticket_id = (
+                            UUID(matching_ticket.id) if not isinstance(matching_ticket.id, UUID) else matching_ticket.id
+                        )
+                    except ValueError:
+                        ticket_id = matching_ticket.id
+                else:
+                    return "Error: UPDATE_TICKET requires 'id=' or 'title=' prefix", None
+
+                ticket = client.update_ticket(ticket_id=str(ticket_id), status=ticket_status)
+                if ticket:
+                    result = f"✓ Ticket updated successfully in {system_name}!\n\nID: {ticket.id}\nTitle: {ticket.title}\nNew Status: {ticket.status.value if hasattr(ticket.status, 'value') else ticket.status}"
+                    metadata = {"system": system_name, "type": "update", "id": str(ticket.id)}
+                    return result, metadata
+
+            elif "CLOSE_TICKET:" in response:
+                # Parse: CLOSE_TICKET:id=<id> OR CLOSE_TICKET:title=<title>
+                parts = response.split("CLOSE_TICKET:")[1].strip()
+
+                ticket_id = None  # type: ignore[assignment]
+                if parts.startswith("id="):
+                    ticket_id_str = parts.replace("id=", "").split()[0].strip()
+                    try:
+                        ticket_id = UUID(ticket_id_str)
+                    except ValueError:
+                        # Not a UUID, use as string (for GTasks)
+                        ticket_id = ticket_id_str  # type: ignore[assignment]
+                elif parts.startswith("title="):
+                    # Using title - search for matching ticket
+                    search_title = parts.replace("title=", "").strip().lower()
+                    tickets = client.search_tickets(query=None, status=None)
+                    tickets_list = list(tickets) if hasattr(tickets, "__iter__") else tickets
+
+                    matching_ticket = None
+                    for ticket in tickets_list:
+                        if search_title in ticket.title.lower():
+                            matching_ticket = ticket
+                            break
+
+                    if not matching_ticket:
+                        return (
+                            f"Error: No ticket found with title containing '{parts.replace('title=', '').strip()}'",
+                            None,
+                        )
+
+                    # Handle both UUID and string IDs
+                    try:
+                        ticket_id = (
+                            UUID(matching_ticket.id) if not isinstance(matching_ticket.id, UUID) else matching_ticket.id
+                        )
+                    except ValueError:
+                        ticket_id = matching_ticket.id
+                else:
+                    return "Error: CLOSE_TICKET requires 'id=' or 'title=' prefix", None
+
+                ticket = client.update_ticket(ticket_id=str(ticket_id), status=TicketStatus.CLOSED)
+                if ticket:
+                    result = f"✓ Ticket closed successfully in {system_name}!\n\nID: {ticket.id}\nTitle: {ticket.title}\nStatus: Closed"
+                    metadata = {"system": system_name, "type": "close", "id": str(ticket.id)}
+                    return result, metadata
 
         except Exception as e:
             logger.error(f"Error handling {system_name} request: {e}")
             return (
-                f"Sorry, I couldn't fetch data from {system_name} right now. The service might be temporarily unavailable. Please try again later.",
+                f"Sorry, I couldn't complete the {system_name} operation right now. Error: {str(e)}",
                 None,
             )
 
@@ -373,9 +596,22 @@ IMPORTANT: Always prefix commands with the system name (JIRA: or GTASKS:) to spe
         result = [header]
         for i, ticket in enumerate(tickets, 1):
             status_str = ticket.status.value if hasattr(ticket.status, "value") else ticket.status
-            result.append(
-                f"{i}. {ticket.title} (ID: {ticket.id})\n   Status: {status_str}\n   Description: {ticket.description}"
-            )
+
+            # Extract priority from description if present
+            description = ticket.description
+            priority_str = None
+            priority_match = re.match(r"^\[PRIORITY: (LOW|MEDIUM|HIGH|CRITICAL)\]\s*", description)
+            if priority_match:
+                priority_str = priority_match.group(1)
+                description = description[priority_match.end() :]  # Remove priority prefix from description
+
+            # Build ticket info
+            ticket_info = f"{i}. {ticket.title} (ID: {ticket.id})"
+            if priority_str:
+                ticket_info += f"\n   Priority: {priority_str}"
+            ticket_info += f"\n   Status: {status_str}\n   Description: {description}"
+
+            result.append(ticket_info)
 
         return "\n".join(result)
 
