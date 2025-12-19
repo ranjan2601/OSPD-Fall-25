@@ -286,6 +286,288 @@ The CI pipeline automatically validates code quality and runs the full test suit
 - Run full test suite (`uv run pytest`) before pushing to ensure CI compatibility
 - The CircleCI pipeline provides automated validation on every push
 
+## Running the Full Integrated Stack
+
+### Overview
+
+The complete system integrates three vertical stacks:
+- **Chat Services**: Discord and Slack
+- **AI Services**: Google Gemini
+- **Ticket Services**: Jira and Google Tasks
+
+### Prerequisites
+
+Before running the integrated stack, ensure you have:
+- Python 3.11+ with `uv` installed
+- Docker (for containerized deployment)
+- Terraform (for IaC deployment to GCP)
+- Google Cloud SDK (`gcloud` CLI for GCP deployment)
+- Access credentials for all required services
+
+### Setting Up Credentials for All Services
+
+#### 1. Gemini AI (Required)
+1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Create or select a project
+3. Generate an API key
+4. Set environment variable:
+   ```bash
+   export GEMINI_API_KEY="your_gemini_api_key_here"
+   ```
+
+#### 2. Jira (Required for Ticket Integration)
+1. Create an Atlassian account and Jira workspace
+2. Go to [Atlassian API Tokens](https://id.atlassian.com/manage/api-tokens)
+3. Create an API token
+4. Set environment variables:
+   ```bash
+   export JIRA_EMAIL="your_email@example.com"
+   export JIRA_API_TOKEN="your_jira_api_token"
+   export JIRA_DOMAIN="your-domain.atlassian.net"
+   export JIRA_PROJECT_KEY="YOUR_PROJECT_KEY"
+   ```
+
+#### 3. Google Tasks (Required for Task Management)
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing one
+3. Enable Google Tasks API
+4. Create OAuth 2.0 credentials (Desktop app type)
+5. Download credentials as `credentials.json` and place in project root
+6. Run the authentication flow:
+   ```bash
+   uv run python e2e_tests/setup_google_tasks_auth.py
+   ```
+   This generates `token.json` with OAuth tokens
+
+#### 4. Slack (Required for Slack Integration)
+1. Go to [Slack API](https://api.slack.com/apps)
+2. Create a new app or select existing one
+3. Add bot token scopes: `chat:write`, `channels:read`, `app_mentions:read`
+4. Install app to workspace and copy Bot User OAuth Token
+5. Set environment variable:
+   ```bash
+   export SLACK_BOT_TOKEN="xoxb-your-slack-bot-token"
+   ```
+
+#### 5. Discord (Required for Discord Integration)
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Create new application
+3. Go to Bot section and create bot
+4. Copy bot token
+5. Set environment variable:
+   ```bash
+   export DISCORD_BOT_TOKEN="your_discord_bot_token"
+   ```
+
+### Running Locally
+
+#### Option 1: Direct Python Execution
+```bash
+# 1. Install dependencies
+uv sync --all-packages --extra dev
+
+# 2. Set all required environment variables (see above)
+export GEMINI_API_KEY="..."
+export JIRA_EMAIL="..."
+export JIRA_API_TOKEN="..."
+export JIRA_DOMAIN="..."
+export JIRA_PROJECT_KEY="..."
+export SLACK_BOT_TOKEN="..."
+export DISCORD_BOT_TOKEN="..."
+
+# 3. Start the orchestrator service
+uv run uvicorn src.orchestrator_service.src.orchestrator_service.api:app --host 0.0.0.0 --port 8080 --reload
+
+# 4. Access the API
+# - Swagger UI: http://localhost:8080/docs
+# - ReDoc: http://localhost:8080/redoc
+# - Health check: http://localhost:8080/health
+```
+
+#### Option 2: Docker Container
+```bash
+# 1. Build the image
+docker build --platform linux/amd64 -t orchestrator-service .
+
+# 2. Run with all credentials
+docker run -p 8080:8080 \
+  -e GEMINI_API_KEY="your_gemini_api_key" \
+  -e JIRA_EMAIL="your_email@example.com" \
+  -e JIRA_API_TOKEN="your_jira_token" \
+  -e JIRA_DOMAIN="your-domain.atlassian.net" \
+  -e JIRA_PROJECT_KEY="YOUR_PROJECT" \
+  -e SLACK_BOT_TOKEN="xoxb-your-slack-token" \
+  -e DISCORD_BOT_TOKEN="your_discord_token" \
+  -v $(pwd)/credentials.json:/app/credentials.json \
+  -v $(pwd)/token.json:/app/token.json \
+  orchestrator-service
+```
+
+### Deploying Infrastructure as Code (IaC)
+
+The project uses Terraform to deploy to Google Cloud Platform (GCP).
+
+#### Prerequisites for IaC Deployment
+- [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) installed
+- [Terraform](https://www.terraform.io/downloads) installed (v1.0+)
+- GCP project with billing enabled
+- Required GCP APIs enabled:
+  - Cloud Run API
+  - Artifact Registry API
+  - Secret Manager API
+  - Cloud Monitoring API
+
+#### Step-by-Step IaC Deployment
+
+1. **Authenticate with GCP:**
+   ```bash
+   gcloud auth login
+   gcloud auth application-default login
+   gcloud config set project YOUR_PROJECT_ID
+   ```
+
+2. **Enable Required APIs:**
+   ```bash
+   gcloud services enable run.googleapis.com \
+     artifactregistry.googleapis.com \
+     secretmanager.googleapis.com \
+     monitoring.googleapis.com
+   ```
+
+3. **Configure Terraform Variables:**
+   ```bash
+   cd terraform
+   cp terraform.tfvars.example terraform.tfvars
+   ```
+   
+   Edit `terraform.tfvars`:
+   ```hcl
+   project_id = "your-gcp-project-id"
+   region     = "us-central1"
+   
+   # Credentials (will be stored in Secret Manager)
+   gemini_api_key      = "your_gemini_api_key"
+   jira_email          = "your_email@example.com"
+   jira_api_token      = "your_jira_token"
+   jira_domain         = "your-domain.atlassian.net"
+   jira_project_key    = "YOUR_PROJECT"
+   slack_bot_token     = "xoxb-your-slack-token"
+   discord_bot_token   = "your_discord_token"
+   tasks_credentials   = file("../credentials.json")
+   tasks_token         = file("../token.json")
+   ```
+
+4. **Initialize Terraform:**
+   ```bash
+   terraform init
+   ```
+
+5. **Review Deployment Plan:**
+   ```bash
+   terraform plan
+   ```
+   
+   This creates:
+   - Artifact Registry repository
+   - Secret Manager secrets for all credentials
+   - Cloud Run service with auto-scaling
+   - Custom monitoring metrics and dashboard
+   - IAM bindings for service accounts
+
+6. **Deploy Infrastructure:**
+   ```bash
+   terraform apply
+   ```
+   
+   Type `yes` when prompted. Deployment takes 3-5 minutes.
+
+7. **Get Service URL:**
+   ```bash
+   terraform output service_url
+   ```
+   
+   Or:
+   ```bash
+   gcloud run services describe ai-chat-orchestrator \
+     --region us-central1 \
+     --format 'value(status.url)'
+   ```
+
+8. **Test Deployed Service:**
+   ```bash
+   export SERVICE_URL=$(terraform output -raw service_url)
+   
+   # Health check
+   curl $SERVICE_URL/health
+   
+   # API documentation
+   open $SERVICE_URL/docs
+   ```
+
+#### Updating the Deployment
+
+After making code changes:
+
+```bash
+# 1. Build and push new image
+docker build --platform linux/amd64 -t gcr.io/YOUR_PROJECT_ID/orchestrator-service:v1.X .
+docker push gcr.io/YOUR_PROJECT_ID/orchestrator-service:v1.X
+
+# 2. Update Terraform variable in terraform.tfvars
+image_version = "v1.X"
+
+# 3. Apply changes
+cd terraform
+terraform apply
+```
+
+#### Destroying Infrastructure
+
+To remove all deployed resources:
+```bash
+cd terraform
+terraform destroy
+```
+
+Type `yes` when prompted. This removes all GCP resources created by Terraform.
+
+### Monitoring and Telemetry
+
+The deployed service includes comprehensive monitoring:
+
+1. **Access Cloud Monitoring:**
+   ```bash
+   # Open monitoring dashboard
+   gcloud monitoring dashboards list
+   
+   # Or visit GCP Console → Monitoring → Dashboards
+   ```
+
+2. **Custom Metrics:**
+   - `ai_chat_orchestrator/request_latency`: API response times
+   - `ai_chat_orchestrator/success_rate`: Successful request percentage
+   - `ai_chat_orchestrator/failure_rate`: Failed request percentage
+
+3. **Export Metrics:**
+   ```bash
+   uv run python scripts/export_telemetry.py
+   ```
+   
+   This exports metrics to CSV files for analysis.
+
+### Running Tests Against Deployed Service
+
+```bash
+# Set deployed service URL
+export ORCHESTRATOR_SERVICE_URL="https://your-service-url.run.app"
+
+# Run E2E tests
+uv run pytest tests/e2e/ -v
+
+# Run integration tests
+uv run pytest e2e_tests/ -v
+```
+
 ## Docker Deployment
 
 ### Build & Run Locally
