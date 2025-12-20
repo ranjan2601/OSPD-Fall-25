@@ -55,5 +55,4 @@ class GeminiServiceAdapter(AIInterface):
         )
 
         response = self.client.generate_response_generate_post(body=request)
-        # Cast from Any to the expected return type
         return str(response.output) if isinstance(response.output, str) else dict(response.output)

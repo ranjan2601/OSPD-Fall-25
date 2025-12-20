@@ -34,13 +34,12 @@ if TYPE_CHECKING:
     from types import TracebackType
 
 # We rely on the shared API models from your project.
-from chat_client_api import Channel as ChannelBase
 from chat_client_api import Message as MessageBase
 
 
 # Concrete implementations for Slack
 @dataclass
-class SlackChannel(ChannelBase):
+class SlackChannel:
     """Concrete Channel implementation for Slack."""
 
     id: str

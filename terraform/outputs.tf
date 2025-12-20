@@ -25,9 +25,8 @@ output "dashboard_url" {
 output "secrets" {
   description = "Secret Manager secret names (values not exposed)"
   value = {
-    gemini_api_key       = google_secret_manager_secret.gemini_api_key.secret_id
-    discord_client_id    = google_secret_manager_secret.discord_client_id.secret_id
-    discord_client_secret = google_secret_manager_secret.discord_client_secret.secret_id
-    slack_token          = google_secret_manager_secret.slack_token.secret_id
+    gemini_api_key    = data.google_secret_manager_secret.gemini_api_key.secret_id
+    discord_bot_token = data.google_secret_manager_secret.discord_bot_token.secret_id
+    slack_bot_token   = data.google_secret_manager_secret.slack_bot_token.secret_id
   }
 }

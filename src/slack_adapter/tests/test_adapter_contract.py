@@ -9,7 +9,9 @@ import pytest
 from slack_adapter import SlackServiceBackedClient
 
 if TYPE_CHECKING:  # satisfy TC001: keep app imports type-only
-    from chat_client_api import Channel, Message
+    from chat_client_api import Message
+
+    from slack_adapter.adapter import SlackChannel
 
 
 def test_adapter_exports() -> None:
@@ -25,7 +27,7 @@ def test_adapter_exports() -> None:
 
 def test_annotations_align_with_contract() -> None:
     """Touch annotations so they are not flagged as unused."""
-    chans: list[Channel] | None = None  # type: ignore[name-defined]
+    chans: list[SlackChannel] | None = None  # type: ignore[name-defined]
     msg: Message | None = None  # type: ignore[name-defined]
 
     if chans is not None:

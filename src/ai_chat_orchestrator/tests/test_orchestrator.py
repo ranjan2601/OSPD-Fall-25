@@ -23,7 +23,7 @@ def test_handle_message_success(orchestrator: Any, mock_ai_client: Any, mock_cha
     result = orchestrator.handle_message("channel_789", "msg_123")
 
     assert result is True
-    mock_chat_client.get_message.assert_called_once_with("channel_789", "msg_123")
+    mock_chat_client.get_messages.assert_called_once_with("channel_789", limit=100)
     mock_ai_client.generate_response.assert_called_once()
     call_args = mock_ai_client.generate_response.call_args
     assert call_args[1]["user_input"] == "Hello AI"
@@ -34,8 +34,9 @@ def test_handle_message_success(orchestrator: Any, mock_ai_client: Any, mock_cha
 def test_handle_message_empty_content(orchestrator: Any, mock_chat_client: Any) -> None:
     """Test handling empty message content."""
     empty_message = Mock()
+    empty_message.id = "msg_123"
     empty_message.content = ""
-    mock_chat_client.get_message.return_value = empty_message
+    mock_chat_client.get_messages.return_value = [empty_message]
 
     result = orchestrator.handle_message("channel_789", "msg_123")
 

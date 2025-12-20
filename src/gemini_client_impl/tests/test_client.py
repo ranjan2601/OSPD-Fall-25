@@ -30,7 +30,7 @@ class TestGeminiClientInit:
         with patch("gemini_client_impl.client.genai") as mock_genai:
             GeminiClient(api_key="test-key")
             mock_genai.configure.assert_called_once_with(api_key="test-key")
-            mock_genai.GenerativeModel.assert_called_once_with("gemini-2.0-flash")
+            mock_genai.GenerativeModel.assert_called_once_with("gemini-3-flash-preview")
 
 
 class TestGeminiClientGenerateResponse:

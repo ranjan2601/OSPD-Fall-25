@@ -39,6 +39,3 @@ This package uses the **Factory Pattern** with **Dependency Injection**:
 2. The registration happens at import time via side-effect imports
 3. User code depends only on the abstract interface, not concrete implementations
 
-## Type Safety
-
-This package is fully typed with `py.typed` marker for mypy compatibility.

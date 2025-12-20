@@ -1,9 +1,12 @@
-# Welcome to the Mail & Gemini AI Client Project
+# AI Chat Orchestrator Documentation
 
-This project demonstrates a professional-grade, component-based architecture for a modern Python application with two main services:
+This project demonstrates a professional-grade microservices architecture for building AI-powered chat systems. The platform integrates Discord, Slack, Jira, and Google Tasks with AI capabilities through a component-based design emphasizing dependency injection and comprehensive testing.
 
-1. **Mail Client Service** - Interact with Gmail API through a direct client and FastAPI service
-2. **Gemini AI Service** - Chat with Google's Gemini AI model with conversation history and OAuth authentication
+## Live Deployment
+
+**Service URL:** https://ai-chat-orchestrator-qvzc7dnvtq-uc.a.run.app
+
+**API Documentation:** https://ai-chat-orchestrator-qvzc7dnvtq-uc.a.run.app/docs
 
 ## Quick Start
 
@@ -16,21 +19,18 @@ uv sync --all-packages --extra dev
 source .venv/bin/activate  # macOS/Linux
 ```
 
-### Run the Services
+### Run the Orchestrator Service
 
-**Mail Client Service:**
 ```bash
-uv run uvicorn mail_client_service.main:app --reload
-```
+# Set environment variables
+export GEMINI_API_KEY="your_key"
+export SLACK_BOT_TOKEN="your_token"  # Optional
+export DISCORD_BOT_TOKEN="your_token"  # Optional
 
-**Gemini AI Service:**
-```bash
-uv run uvicorn gemini_service.main:app --reload
-```
+# Run the orchestrator service
+uv run uvicorn orchestrator_service.api:app --port 8080 --reload
 
-**Combined Service (Fly.io Deployment):**
-```bash
-uv run python src/app.py
+# Access API docs at http://localhost:8080/docs
 ```
 
 ### Run Tests
@@ -45,30 +45,64 @@ uv run pytest src/ tests/ -m "not local_credentials"
 uv run pytest src/ --cov --cov-report=html
 ```
 
-## Project Components
+## Architecture Layers
 
-### HW1 - Mail Client Components
-1. **`mail_client_api`** - Abstract base classes defining the mail client interface
-2. **`gmail_client_impl`** - Gmail-specific implementation using Google API
-3. **`mail_client_service`** - FastAPI service with dependency injection and REST endpoints
-4. **`mail_client_service_client`** - Auto-generated HTTP client for the service
-5. **`mail_client_adapter`** - Adapter implementing `mail_client_api.Client` using the HTTP service
+### AI Client Layer
+1. **`ai_client_api`** - Abstract AIClient interface for AI service integration
+2. **`gemini_client_impl`** - Google Gemini API implementation with structured output support
+3. **`gemini_service`** - FastAPI service exposing Gemini capabilities via HTTP
+4. **`gemini_adapter`** - HTTP adapter enabling microservices deployment
 
-### HW2 - Gemini AI Components
-1. **`gemini_api`** - Abstract base classes for AI client interface (send message, get history, clear conversation)
-2. **`gemini_impl`** - Google Gemini API implementation with SQLite conversation storage
-3. **`gemini_service`** - FastAPI service with OAuth 2.0 authentication and per-user API key management
-4. **`gemini_service_api_client`** - Auto-generated HTTP client for the service
-5. **`gemini_adapter`** - Adapter implementing `gemini_api.AIClient` interface via HTTP
+### Chat Client Layer
+1. **`chat_client_api`** - Abstract ChatInterface for platform operations
+2. **`discord_client_impl`** - Discord Gateway implementation with event handling
+3. **`slack_impl`** - Slack Web API implementation with channel management
+
+### Ticket Management Layer
+1. **`ticket_api`** - Abstract ticket interface with priority support via description prefix
+2. **`ticket_impl`** - Jira REST API implementation with OAuth 2.0 and user account lookup
+3. **`gtasks_client_impl`** - Google Tasks API implementation with fast response times
+4. **`tickets_api`** - Shared standardized interface for cross-system compatibility
+
+### Orchestration Layer
+1. **`ai_chat_orchestrator`** - Coordinates AI, chat, and ticket services
+   - Natural language command processing
+   - Title-based ticket operations with partial matching
+   - Priority extraction and display
+   - Conversation history management (last 10 exchanges per channel)
+   - Polymorphic ID handling (UUID and string IDs)
+2. **`orchestrator_service`** - Unified FastAPI service for all integrations
+   - Discord and Slack message processing
+   - Jira and Google Tasks CRUD operations
+   - Slack webhook with event deduplication
+   - Health checks and telemetry
 
 ## Key Features
 
-- **Clean Architecture** - Separation of concerns with abstract contracts and concrete implementations
-- **Dependency Injection** - Factory-based DI pattern for loose coupling and easy testing
-- **Type Safety** - Strict mypy checking across all modules
-- **Component-Based** - Self-contained packages with minimal inter-dependencies
-- **OAuth 2.0** - Secure authentication for Gemini AI service
-- **Comprehensive Testing** - Unit, integration, and E2E tests with 80%+ code coverage
-- **Production Ready** - Deployed to Fly.io with SQLite persistence
+### Natural Language Processing
+- **Intelligent Command Routing** - AI automatically routes commands to Jira or Google Tasks
+- **Priority Support** - Create tickets with LOW, MEDIUM, HIGH, or CRITICAL priority
+- **Title-Based Operations** - Update and close tickets using natural titles instead of UUIDs
+- **Conversation Context** - Maintains conversation history for coherent multi-turn interactions
 
-This documentation provides detailed information about the architecture, API contracts, testing strategies, and usage guidelines.
+### Multi-Platform Integration
+- **Discord & Slack** - Full chat platform integration with message processing
+- **Jira Integration** - Complete CRUD operations with OAuth 2.0 authentication
+- **Google Tasks** - Fast task management (1-2s response time vs Jira's 30-60s)
+- **Slack Webhooks** - Event-driven architecture with background processing
+
+### Architecture & Quality
+- **Component-Based Design** - Self-contained packages with clear interface boundaries
+- **Dependency Injection** - Factory-based pattern enabling flexible component swapping
+- **Type Safety** - Strict mypy checking across all modules
+- **Comprehensive Testing** - 85%+ code coverage with unit, integration, and E2E tests
+- **CI/CD Pipeline** - CircleCI with automated testing and deployment
+- **Production Deployment** - GCP Cloud Run with Terraform infrastructure as code
+
+### Performance Characteristics
+- **GTasks Operations** - 1-2 second response time
+- **Jira Operations** - 30-60 seconds (OAuth validation, user account lookup)
+- **Event Deduplication** - Prevents duplicate Slack message processing
+- **Telemetry Tracking** - Built-in metrics for success rates and latency
+
+This documentation provides detailed information about the architecture, API contracts, testing strategies, and deployment guidelines.

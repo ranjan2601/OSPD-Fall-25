@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import pytest
-from chat_client_api import Channel, Message  # runtime construction only
+from chat_client_api import Message  # runtime construction only
 
-from slack_adapter import ServiceAdapter, _get_id  # type: ignore[import]
+from slack_adapter import ServiceAdapter, SlackChannel, _get_id  # type: ignore[import]
 
 
 class OnlyGetPostHTTP:
@@ -77,8 +77,8 @@ def test_adapter_get_post_paths_and_health_variants() -> None:
     chs = adapter.list_channels()
     if len(chs) != 1:
         pytest.fail("expected one channel")
-    if not isinstance(chs[0], Channel):
-        pytest.fail("expected Channel")
+    if not isinstance(chs[0], SlackChannel):
+        pytest.fail("expected SlackChannel")
     if chs[0].id != "C42":
         pytest.fail("channel id mismatch")
 

@@ -8,6 +8,7 @@ import ai_client_api
 import discord_client_impl
 import gemini_client_impl
 from ai_chat_orchestrator.orchestrator import AIChatOrchestrator
+from ai_chat_orchestrator.slack_chat_client import SlackChatClient
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ def create_gemini_discord_orchestrator(
     discord_client_impl.register()
 
     ai_client = ai_client_api.get_client(api_key=gemini_api_key)
-    chat_client = chat_client_api.get_client(user_id=discord_user_id)
+    chat_client = chat_client_api.get_client(user_id=discord_user_id)  # type: ignore[attr-defined]
 
     return AIChatOrchestrator(
         ai_client=ai_client,
@@ -59,8 +60,6 @@ def create_gemini_slack_orchestrator(
     """
     gemini_client_impl.register()
     ai_client = ai_client_api.get_client(api_key=gemini_api_key)
-
-    from ai_chat_orchestrator.slack_chat_client import SlackChatClient
 
     chat_client = SlackChatClient(base_url=slack_base_url, token=slack_token)
 

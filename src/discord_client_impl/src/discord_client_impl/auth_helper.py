@@ -4,9 +4,6 @@ import logging
 import os
 from datetime import UTC, datetime
 
-# Import session-backed credential helpers from the service package.
-# The service package is available on the PYTHONPATH as `discord_client_service` when
-# the workspace packages are installed in editable/development mode.
 from discord_client_service.auth_session import (
     delete_credential,
     get_credential,
@@ -17,7 +14,6 @@ from discord_client_impl.discord_impl import DiscordClient
 
 LOGGER = logging.getLogger(__name__)
 
-# central constant to avoid repeating string literals flagged by linters
 BOT_TOKEN_TYPE = "Bot"  # noqa: S105
 
 
@@ -40,10 +36,6 @@ async def get_client_for_user(guild_id: str) -> DiscordClient:
         error_msg = f"No credentials found for guild: {guild_id}"
         raise ValueError(error_msg)
 
-    # If the stored credential exists but is not a Bot token, prefer using
-    # the application bot token (DISCORD_BOT_TOKEN) for guild-level operations
-    # because OAuth access tokens are not valid as bot tokens.
-    # Prefer application-level bot token if present
     app_bot_token = os.environ.get("DISCORD_BOT_TOKEN")
 
     if credentials and str(credentials.get("token_type", "")).lower() != "bot" and app_bot_token:
@@ -53,8 +45,6 @@ async def get_client_for_user(guild_id: str) -> DiscordClient:
         )
         return DiscordClient(access_token=app_bot_token, token_type=BOT_TOKEN_TYPE)
 
-    # Check if token is expired and needs refresh
-    # If credential has expiry and it's expired, try refresh if refresh_token present
     if credentials and credentials.get("expires_at"):
         try:
             expires_iso = credentials.get("expires_at")
@@ -67,21 +57,16 @@ async def get_client_for_user(guild_id: str) -> DiscordClient:
                 LOGGER.info("Access token expired for guild %s, attempting refresh", guild_id)
                 client = DiscordClient()
                 try:
-                    # Ensure we pass a str to _refresh_access_token (mypy requires str)
                     refresh_token = credentials.get("refresh_token")
                     if not refresh_token:
-                        # Assign the message to a variable (avoid f-string in the raise
-                        # expression and keep line lengths under the linter limit).
                         msg = (
                             "No refresh token available to refresh credentials "
                             f"for guild {guild_id}"
                         )
                         raise ValueError(msg)
 
-                    # convert to str explicitly to satisfy the DiscordClient API contract
                     new_token_data = client._refresh_access_token(str(refresh_token))
 
-                    # compute token_type safely and keep line lengths short
                     token_type_default = credentials.get("token_type", "Bearer")
                     token_type_val = new_token_data.get("token_type", token_type_default)
 
@@ -90,7 +75,6 @@ async def get_client_for_user(guild_id: str) -> DiscordClient:
                     expires_val = expires_at_val if expires_at_val is not None else expires_in_val
                     scope_val = new_token_data.get("scope", credentials.get("scope"))
 
-                    # Persist refreshed tokens in credential store
                     await set_credential(
                         guild_id,
                         {
@@ -111,10 +95,8 @@ async def get_client_for_user(guild_id: str) -> DiscordClient:
                     msg = f"Failed to refresh expired token for guild {guild_id}: {e}"
                     raise ValueError(msg) from e
         except (ValueError, TypeError) as e:
-            # If parsing fails, log and continue to use stored token if present
             LOGGER.debug("Failed to parse expires_at for guild %s: %s", guild_id, e)
 
-    # Token is still valid, use it directly. Respect the stored token_type.
     return DiscordClient(
         access_token=credentials.get("access_token"),
         token_type=str(credentials.get("token_type", "Bearer")),
@@ -130,12 +112,10 @@ async def get_bot_client_for_guild(guild_id: str) -> DiscordClient:
     3. Otherwise raise ValueError.
 
     """
-    # 1) application-level bot token (recommended for bot installs)
     app_bot_token = os.environ.get("DISCORD_BOT_TOKEN")
     if app_bot_token:
         return DiscordClient(access_token=app_bot_token, token_type=BOT_TOKEN_TYPE)
 
-    # 2) fallback to stored credentials if they are bot tokens
     credentials = await get_credential(guild_id)
     if credentials and str(credentials.get("token_type", "")).lower() == "bot":
         return DiscordClient(
@@ -162,14 +142,12 @@ async def store_user_credentials(
                    - scope: Granted scopes
 
     """
-    # Persist credentials into in-memory credential store
     await set_credential(
         guild_id,
         {
             "access_token": str(token_data["access_token"]),
             "refresh_token": str(token_data.get("refresh_token")),
             "token_type": str(token_data.get("token_type", "Bearer")),
-            # store expires_at as ISO string if provided, otherwise compute not implemented here
             "expires_at": token_data.get("expires_at") or None,
             "scope": str(token_data.get("scope", "")) if token_data.get("scope") else None,
         },

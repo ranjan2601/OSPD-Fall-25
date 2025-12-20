@@ -72,21 +72,17 @@ def resolve_api_key(
         ValueError: If no API key can be found through any method.
 
     """
-    # Priority 1: Explicit parameter
     if explicit_key:
         return explicit_key.strip()
 
-    # Priority 2: Provider-specific environment variable
     provider_key = os.getenv(f"{provider.upper()}_API_KEY")
     if provider_key:
         return provider_key.strip()
 
-    # Priority 3: Unified environment variable (for Chat/Ticket teams)
     unified_key = os.getenv("AI_API_KEY")
     if unified_key:
         return unified_key.strip()
 
-    # Priority 4: Session storage
     if credential_manager:
         try:
             return credential_manager.get_api_key(user_id, provider)

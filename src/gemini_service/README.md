@@ -1,201 +1,218 @@
 # Gemini Service
 
-FastAPI service that exposes AI chat functionality using Google Gemini API over HTTP endpoints.
+FastAPI service exposing Gemini AI capabilities via HTTP endpoints.
 
 ## Overview
 
-This service provides a RESTful API for interacting with Google's Gemini AI model. It handles:
-- Sending messages and receiving AI responses
-- Managing conversation history per user
-- OAuth 2.0 authentication flow with Google
-- Secure credential storage and token refresh
+This package provides a REST API service that wraps the Gemini client implementation, making AI capabilities accessible over HTTP. The service follows the `AIClient` interface contract and exposes it through well-defined API endpoints.
 
 ## Architecture
 
-The service follows the component-based architecture pattern:
-- Uses `gemini_impl` for concrete Gemini API integration
-- Implements OAuth 2.0 flow for user authentication
-- Exposes all functionality defined in `gemini_api` abstract interface
-- Provides mock client fallback for testing without credentials
+The service is built on FastAPI and follows a layered architecture:
 
-## Endpoints
+1. **HTTP Layer**: FastAPI routes and request/response models
+2. **Business Logic**: Delegates to `gemini_client_impl` through `ai_client_api`
+3. **Configuration**: Environment-based credential management
 
-### Chat Operations
+This design keeps the HTTP layer thin and delegates actual AI operations to the registered implementation.
 
-#### Send Message
-```http
-POST /chat
-Content-Type: application/json
+## API Endpoints
 
+### POST /generate
+
+Generate AI responses with optional structured output.
+
+**Request Body:**
+```json
 {
-  "user_id": "user123",
-  "message": "Hello, AI!"
+  "user_input": "What is the capital of France?",
+  "system_prompt": "You are a helpful assistant.",
+  "response_schema": null
 }
 ```
 
-Response:
+**Response (Conversational):**
 ```json
 {
-  "response": "Hello! How can I help you today?"
+  "output": "The capital of France is Paris."
 }
 ```
 
-#### Get Conversation History
-```http
-GET /history/{user_id}
-```
-
-Response:
+**Request Body (Structured Output):**
 ```json
 {
-  "user_id": "user123",
-  "messages": [
-    {
-      "role": "user",
-      "content": "Hello, AI!"
-    },
-    {
-      "role": "assistant",
-      "content": "Hello! How can I help you today?"
+  "user_input": "Extract person info: John is 30 and lives in Paris",
+  "system_prompt": "Extract structured data",
+  "response_schema": {
+    "type": "object",
+    "properties": {
+      "name": {"type": "string"},
+      "age": {"type": "number"},
+      "city": {"type": "string"}
     }
-  ]
+  }
 }
 ```
 
-#### Clear Conversation
-```http
-DELETE /history/{user_id}
-```
-
-Response:
+**Response (Structured):**
 ```json
 {
-  "user_id": "user123",
-  "success": true
+  "output": {
+    "name": "John",
+    "age": 30,
+    "city": "Paris"
+  }
 }
 ```
 
-### OAuth 2.0 Authentication
+### GET /health
 
-#### Get Authorization URL
-```http
-GET /auth/login?user_id=user123
-```
+Health check endpoint for monitoring service availability.
 
-Response:
+**Response:**
 ```json
 {
-  "auth_url": "https://accounts.google.com/o/oauth2/auth?..."
+  "status": "healthy",
+  "service": "Gemini AI Service",
+  "version": "1.0.0"
 }
 ```
 
-#### Handle OAuth Callback
-```http
-POST /auth/callback
-Content-Type: application/json
+### GET /
 
-{
-  "user_id": "user123",
-  "code": "authorization_code_from_google"
-}
-```
+Root endpoint returning service status.
 
-Response:
+**Response:**
 ```json
 {
-  "user_id": "user123",
-  "status": "authenticated"
+  "message": "Gemini AI Service is running"
 }
 ```
 
-#### Revoke Credentials
-```http
-DELETE /auth/{user_id}
+## Running the Service
+
+### Local Development
+
+```bash
+# Install dependencies
+uv sync --all-packages --extra dev
+
+# Set environment variable
+export GEMINI_API_KEY="your-api-key"
+
+# Run the service
+uv run uvicorn gemini_service.main:app --reload --port 8000
 ```
 
-Response:
-```json
-{
-  "user_id": "user123",
-  "status": "revoked"
-}
-```
+The service will be available at `http://localhost:8000`.
 
-### Health Check
+### API Documentation
 
-#### Root
-```http
-GET /
-```
+FastAPI automatically generates interactive API documentation:
 
-#### Health
-```http
-GET /health
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
+
+### Docker Deployment
+
+```bash
+# Build the image
+docker build -t gemini-service .
+
+# Run the container
+docker run -p 8000:8000 -e GEMINI_API_KEY="your-api-key" gemini-service
 ```
 
 ## Configuration
 
-Set these environment variables:
+### Environment Variables
 
-- `GEMINI_API_KEY`: Your Google Gemini API key
-- `GOOGLE_CREDENTIALS_FILE`: Path to OAuth credentials JSON (default: `credentials.json`)
-- `GEMINI_DB_PATH`: Path to SQLite database for storing conversations and tokens (default: `conversations.db`)
+- `GEMINI_API_KEY`: Required. Google Gemini API key
 
-## Running Locally
+The service loads configuration from a `.env` file if present.
 
-```bash
-# Install dependencies
-uv sync
+### Credential Resolution
 
-# Set environment variables
-export GEMINI_API_KEY="your-api-key"
-export GOOGLE_CREDENTIALS_FILE="path/to/credentials.json"
+The service uses `ai_client_api.credential.resolve_api_key()` to obtain API keys:
+- Checks environment variables
+- Falls back to credential files if configured
+- Raises clear errors if credentials are missing
 
-# Run the service
-uv run uvicorn gemini_service.main:app --reload --port 8001
+## Error Handling
 
-# Access the interactive API docs
-open http://localhost:8001/docs
-```
+The service provides clear HTTP error responses:
 
-## Testing
+- **400 Bad Request**: Invalid input (empty user_input or system_prompt)
+- **500 Internal Server Error**: API key not found or Gemini API errors
 
-```bash
-# Run all tests
-uv run pytest src/gemini_service/tests/ -v
-
-# Run with coverage
-uv run pytest src/gemini_service/tests/ --cov=src/gemini_service --cov-report=term
+Error responses include detailed messages:
+```json
+{
+  "detail": "user_input is required"
+}
 ```
 
 ## Dependencies
 
 - `fastapi`: Web framework
 - `uvicorn`: ASGI server
-- `pydantic`: Data validation
-- `gemini-api`: Abstract interface
-- `gemini-impl`: Concrete Gemini implementation with OAuth
+- `ai_client_api`: Abstract interface
+- `gemini_client_impl`: Gemini implementation
+- `python-dotenv`: Environment variable management
 
-## OAuth 2.0 Flow
+## Testing
 
-1. User requests authorization URL via `GET /auth/login?user_id=<user_id>`
-2. Service generates Google OAuth URL and returns it
-3. User is redirected to Google for authentication
-4. Google redirects back with authorization code
-5. Client posts code to `POST /auth/callback`
-6. Service exchanges code for credentials and stores them securely
-7. Subsequent requests use stored credentials automatically
+Run tests with pytest:
 
-## Development
-
-The service uses dependency injection to allow easy testing and mocking. All endpoints are tested with FastAPI's `TestClient` and mock dependencies.
-
-Run quality checks:
 ```bash
-# Linting
-uv run ruff check src/gemini_service
-
-# Type checking
-uv run mypy src/gemini_service
+pytest src/gemini_service/tests/
 ```
 
+The test suite includes:
+- Unit tests with mocked AI client
+- API endpoint tests using TestClient
+- Validation tests for request parameters
+- Error handling tests
+
+## Integration with Other Services
+
+The Gemini service can be called from other services:
+
+```python
+import httpx
+
+response = httpx.post(
+    "http://localhost:8000/generate",
+    json={
+        "user_input": "Hello",
+        "system_prompt": "You are helpful.",
+        "response_schema": None
+    }
+)
+
+data = response.json()
+print(data["output"])
+```
+
+Or use the auto-generated client from `gemini_ai_service_client`:
+
+```python
+from gemini_ai_service_client import Client
+
+client = Client(base_url="http://localhost:8000")
+# Use client methods...
+```
+
+## Design Principles
+
+### Thin HTTP Layer
+
+The service is a minimal HTTP wrapper around the AI client implementation. Business logic remains in the client layer, not in the API routes.
+
+### Interface-Based Design
+
+The service depends on `ai_client_api`, not directly on `gemini_client_impl`. This allows swapping implementations without changing the service code.
+
+### Standard REST Patterns
+
+Uses standard HTTP methods, status codes, and JSON request/response formats for easy integration with other systems.

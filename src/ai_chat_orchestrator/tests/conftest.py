@@ -5,6 +5,8 @@ from unittest.mock import Mock
 
 import pytest
 
+from ai_chat_orchestrator import AIChatOrchestrator
+
 
 @pytest.fixture
 def mock_ai_client() -> Any:
@@ -26,6 +28,7 @@ def mock_chat_client() -> Any:
     mock_message.channel_id = "channel_789"
 
     client.get_message.return_value = mock_message
+    client.get_messages.return_value = [mock_message]
     client.send_message.return_value = True
 
     return client
@@ -34,7 +37,6 @@ def mock_chat_client() -> Any:
 @pytest.fixture
 def orchestrator(mock_ai_client: Any, mock_chat_client: Any) -> Any:
     """Create orchestrator with mocked clients."""
-    from ai_chat_orchestrator import AIChatOrchestrator
 
     return AIChatOrchestrator(
         ai_client=mock_ai_client,

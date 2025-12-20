@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import pytest
-from chat_client_api import Channel, Message  # only for runtime construction
+from chat_client_api import Message  # only for runtime construction
 
 from slack_adapter import (
     ServiceAdapter,
     ServiceBackedClient,
+    SlackChannel,
     SlackMessage,
     _get_id,
 )  # type: ignore[import]
@@ -83,8 +84,8 @@ def test_health_list_and_post_paths() -> None:
     chs = adapter.list_channels()
     if len(chs) != 1:
         pytest.fail("expected exactly one channel")
-    if not isinstance(chs[0], Channel):
-        pytest.fail("expected a Channel instance")
+    if not isinstance(chs[0], SlackChannel):
+        pytest.fail("expected a SlackChannel instance")
     if chs[0].id != "C9":
         pytest.fail("channel id mismatch")
 

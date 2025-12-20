@@ -48,6 +48,8 @@ coverage.xml
 .coverage*
 TESTING_STATUS.md
 
+# E2E test files
+e2e_tests/
 
 GUIDES/
 scripts/

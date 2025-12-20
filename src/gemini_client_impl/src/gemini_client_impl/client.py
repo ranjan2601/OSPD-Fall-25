@@ -5,6 +5,7 @@ from typing import Any
 import ai_client_api
 import google.generativeai as genai  # type: ignore[import-untyped]
 from ai_client_api.client import AIInterface
+import json
 
 
 class GeminiClient(AIInterface):
@@ -21,7 +22,7 @@ class GeminiClient(AIInterface):
 
         # Initialize Gemini API
         genai.configure(api_key=api_key)  # type: ignore[attr-defined]
-        self.model: Any = genai.GenerativeModel("gemini-2.0-flash")  # type: ignore[attr-defined]
+        self.model: Any = genai.GenerativeModel("gemini-3-flash-preview")  # type: ignore[attr-defined]
 
     def generate_response(
         self,
@@ -60,8 +61,6 @@ class GeminiClient(AIInterface):
                         response_schema=response_schema,
                     ),
                 )
-                # Parse JSON response
-                import json
 
                 result: dict[str, Any] = json.loads(response.text)
                 return result

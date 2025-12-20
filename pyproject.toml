@@ -5,6 +5,7 @@ description = "Template repository for a mail client"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "discord-py>=2.6.4",
     "slack-sdk>=3.39.0",
     "types-requests>=2.32.4.20250913",
 ]
@@ -45,7 +46,20 @@ members = [
   "src/discord_client_service_adapter",
   "src/ai_chat_orchestrator",
   "src/orchestrator_service",
+  "src/ticket_api",
+  "src/ticket_impl",
+  "src/tickets_api",
+  "src/task_client_api",
+  "src/gtask_client_impl",
+  "src/gtasks_client_impl",
+  "src/task_client_service",
 ]
+
+[tool.uv.sources]
+task-client-api = { path = "src/task_client_api" }
+gtask-client-impl = { path = "src/gtask_client_impl" }
+tickets-api = { path = "src/tickets_api" }
+tickets-client-impl = { path = "src/gtasks_client_impl" }
 
 [tool.ruff]
 line-length = 130 # high for top level due to tests
@@ -84,6 +98,14 @@ mypy_path = [
     "src/slack_adapter/src",
     "src/slack_service/src",
     "src/ai_chat_orchestrator/src",
+    "src/orchestrator_service/src",
+    "src/ticket_api/src",
+    "src/ticket_impl/src",
+    "src/tickets_api/src",
+    "src/task_client_api/src",
+    "src/gtask_client_impl/src",
+    "src/gtasks_client_impl/src",
+    "src/task_client_service/src",
 ]
 ignore_missing_imports = true  # Allow missing imports from external packages
 warn_unused_ignores = false
@@ -125,6 +147,7 @@ omit = [
     "*/mail_client_adapter/*",
     "*/gmail_client_impl/*",
     "*/discord_client_impl/auth_helper.py",
+    "src/app.py",
 ]
 
 [tool.coverage.report]
@@ -138,7 +161,7 @@ exclude_lines = [
 [dependency-groups]
 dev = [
     "mypy>=1.18.2",
-    "pytest==8.4.1",
+    "pytest>=8.4.1",
     "pytest-cov>=7.0.0",
     "ruff>=0.13.2",
 ]

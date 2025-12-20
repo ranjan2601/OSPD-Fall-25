@@ -58,45 +58,59 @@ resource "google_artifact_registry_repository" "ai_chat_repo" {
   depends_on = [google_project_service.artifact_registry]
 }
 
-# Secret Manager for API keys
-resource "google_secret_manager_secret" "gemini_api_key" {
+# Reference existing secrets (managed outside Terraform)
+data "google_secret_manager_secret" "gemini_api_key" {
   secret_id = "gemini-api-key"
-
-  replication {
-    auto {}
-  }
-
-  depends_on = [google_project_service.cloud_run]
 }
 
-resource "google_secret_manager_secret" "discord_client_id" {
-  secret_id = "discord-client-id"
-
-  replication {
-    auto {}
-  }
-
-  depends_on = [google_project_service.cloud_run]
+data "google_secret_manager_secret" "discord_bot_token" {
+  secret_id = "discord-bot-token"
 }
 
-resource "google_secret_manager_secret" "discord_client_secret" {
-  secret_id = "discord-client-secret"
-
-  replication {
-    auto {}
-  }
-
-  depends_on = [google_project_service.cloud_run]
-}
-
-resource "google_secret_manager_secret" "slack_token" {
+data "google_secret_manager_secret" "slack_bot_token" {
   secret_id = "slack-bot-token"
+}
 
-  replication {
-    auto {}
+# Optional Google Tasks secrets
+data "google_secret_manager_secret" "tasks_client_id" {
+  secret_id = "tasks-client-id"
+}
+
+data "google_secret_manager_secret" "tasks_client_secret" {
+  secret_id = "tasks-client-secret"
+}
+
+data "google_secret_manager_secret" "tasks_refresh_token" {
+  secret_id = "tasks-refresh-token"
+}
+
+# Read .env file for non-secret environment variables
+locals {
+  # Read .env file
+  env_file = file("../.env")
+
+  # Parse .env into a map (key=value format)
+  env_lines = [for line in split("\n", local.env_file) : line if length(trimspace(line)) > 0 && !startswith(trimspace(line), "#")]
+
+  env_vars = { for line in local.env_lines :
+    split("=", line)[0] => trimspace(join("=", slice(split("=", line), 1, length(split("=", line)))))
+    if length(split("=", line)) >= 2
   }
 
-  depends_on = [google_project_service.cloud_run]
+  # Define which env vars are secrets (exclude from env vars)
+  secret_keys = [
+    "GEMINI_API_KEY",
+    "DISCORD_BOT_TOKEN",
+    "SLACK_BOT_TOKEN",
+    "TASKS_CLIENT_ID",
+    "TASKS_CLIENT_SECRET",
+    "TASKS_REFRESH_TOKEN",
+  ]
+
+  # Non-secret env vars only
+  non_secret_env_vars = { for k, v in local.env_vars : k => v
+    if !contains(local.secret_keys, k) && length(v) > 0
+  }
 }
 
 # Service Account for Cloud Run
@@ -107,28 +121,48 @@ resource "google_service_account" "orchestrator_sa" {
 }
 
 # Grant Secret Manager access to service account
-resource "google_secret_manager_secret_iam_member" "gemini_key_access" {
-  secret_id = google_secret_manager_secret.gemini_api_key.id
+resource "google_secret_manager_secret_iam_member" "gemini_access" {
+  secret_id = data.google_secret_manager_secret.gemini_api_key.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.orchestrator_sa.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "discord_id_access" {
-  secret_id = google_secret_manager_secret.discord_client_id.id
+resource "google_secret_manager_secret_iam_member" "discord_access" {
+  secret_id = data.google_secret_manager_secret.discord_bot_token.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.orchestrator_sa.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "discord_secret_access" {
-  secret_id = google_secret_manager_secret.discord_client_secret.id
+resource "google_secret_manager_secret_iam_member" "slack_access" {
+  secret_id = data.google_secret_manager_secret.slack_bot_token.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.orchestrator_sa.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "slack_token_access" {
-  secret_id = google_secret_manager_secret.slack_token.id
+# Grant access to optional Google Tasks secrets
+resource "google_secret_manager_secret_iam_member" "tasks_client_id_access" {
+  secret_id = data.google_secret_manager_secret.tasks_client_id.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.orchestrator_sa.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "tasks_client_secret_access" {
+  secret_id = data.google_secret_manager_secret.tasks_client_secret.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.orchestrator_sa.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "tasks_refresh_token_access" {
+  secret_id = data.google_secret_manager_secret.tasks_refresh_token.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.orchestrator_sa.email}"
+}
+
+# Grant Monitoring Metric Writer permission for metrics export
+resource "google_project_iam_member" "monitoring_metric_writer" {
+  project = var.project_id
+  role    = "roles/monitoring.metricWriter"
+  member  = "serviceAccount:${google_service_account.orchestrator_sa.email}"
 }
 
 # Cloud Monitoring - Latency Metric Descriptor
@@ -198,21 +232,83 @@ resource "google_cloud_run_service" "orchestrator_service" {
       service_account_name = google_service_account.orchestrator_sa.email
 
       containers {
-        image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.ai_chat_repo.repository_id}/orchestrator-service:latest"
+        image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.ai_chat_repo.repository_id}/orchestrator-service:v3.15"
 
+        # Secret environment variables
         env {
           name = "GEMINI_API_KEY"
           value_from {
             secret_key_ref {
-              name = google_secret_manager_secret.gemini_api_key.secret_id
+              name = data.google_secret_manager_secret.gemini_api_key.secret_id
               key  = "latest"
             }
           }
         }
 
         env {
-          name  = "SLACK_BOT_TOKEN"
-          value = ""
+          name = "DISCORD_BOT_TOKEN"
+          value_from {
+            secret_key_ref {
+              name = data.google_secret_manager_secret.discord_bot_token.secret_id
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "SLACK_BOT_TOKEN"
+          value_from {
+            secret_key_ref {
+              name = data.google_secret_manager_secret.slack_bot_token.secret_id
+              key  = "latest"
+            }
+          }
+        }
+
+        # Optional Google Tasks secrets
+        env {
+          name = "TASKS_CLIENT_ID"
+          value_from {
+            secret_key_ref {
+              name = data.google_secret_manager_secret.tasks_client_id.secret_id
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "TASKS_CLIENT_SECRET"
+          value_from {
+            secret_key_ref {
+              name = data.google_secret_manager_secret.tasks_client_secret.secret_id
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "TASKS_REFRESH_TOKEN"
+          value_from {
+            secret_key_ref {
+              name = data.google_secret_manager_secret.tasks_refresh_token.secret_id
+              key  = "latest"
+            }
+          }
+        }
+
+        # GCP_PROJECT for metrics export
+        env {
+          name  = "GCP_PROJECT"
+          value = var.project_id
+        }
+
+        # Non-secret env vars from .env
+        dynamic "env" {
+          for_each = local.non_secret_env_vars
+          content {
+            name  = env.key
+            value = env.value
+          }
         }
 
         ports {

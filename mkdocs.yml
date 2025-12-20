@@ -1,5 +1,5 @@
 site_name: AI Chat Orchestrator Project
-site_description: "A professional-grade component-based architecture for AI chat services with provider swapping support."
+site_description: "A professional-grade microservices architecture integrating AI-powered chat systems with Discord, Slack, Jira, and Google Tasks. Features natural language ticket creation with priority support, title-based updates, conversation history management, and intelligent multi-system routing. Built with component-based design, dependency injection, and comprehensive testing."
 
 theme:
   name: material
@@ -29,7 +29,11 @@ nav:
     - 'Chat Client API': 'api/chat_client_api.md'
     - 'Discord Client Implementation': 'api/discord_client_impl.md'
     - 'Slack Client Implementation': 'api/slack_impl.md'
+    - 'Ticket API': 'api/ticket_api.md'
+    - 'Jira Client Implementation': 'api/jira_client_impl.md'
+    - 'Google Tasks Implementation': 'api/gtask_client_impl.md'
     - 'AI Chat Orchestrator': 'api/ai_chat_orchestrator.md'
+    - 'Orchestrator Service': 'api/orchestrator_service.md'
 
 markdown_extensions:
   - pymdownx.highlight:
@@ -49,7 +53,12 @@ plugins:
             - src/discord_client_impl/src
             - src/slack_impl/src
             - src/slack_adapter/src
+            - src/ticket_api/src
+            - src/jira_client_impl/src
+            - src/gtask_client_impl/src
+            - src/task_client_service/src
             - src/ai_chat_orchestrator/src
+            - src/orchestrator_service/src
           options:
             show_source: false
             docstring_section_style: spacy

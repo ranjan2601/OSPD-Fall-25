@@ -11,24 +11,16 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
+from dotenv import load_dotenv
 
-# Database-backed credential storage has been removed in favor of
-# an in-memory session-backed credential store implemented in
-# `discord_client_service.auth_session`.
-# Previously this module initialized the database on startup; that
-# initialization is no longer needed.
 from fastapi import FastAPI
 
 logger = logging.getLogger(__name__)
 
-# Load environment variables from .env file
 try:
-    from dotenv import load_dotenv
-
     load_dotenv()
     logger.info("Loaded environment variables from .env file")
 except ImportError:
-    # If python-dotenv is not available, manually load .env file
     env_path = Path(".env")
     if env_path.exists():
         with env_path.open() as f:
@@ -55,17 +47,14 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         None: Control during application runtime.
 
     """
-    # Startup: nothing to initialize for DB (sessions are in-memory)
     logger.info("Initializing Discord service (no database)...")
 
     yield
 
-    # Shutdown: nothing to close
     logger.info("Shutting down Discord service")
     logger.info("Service shutdown complete")
 
 
-# Create FastAPI application
 app = FastAPI(
     title="Discord Client Service",
     description="RESTful API for Discord chat operations with OAuth2 authentication",
